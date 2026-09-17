@@ -1,4 +1,7 @@
 import { NextResponse } from 'next/server';
+import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-input';
+import { validatePhotos } from '../../../lib/photo-validation';
+import { readReportBody } from '../../../lib/request-body';
 import {
   createReportRecord,
   listReportRecords,
@@ -63,6 +66,7 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
     resolutionDueAt: textValue(body.resolutionDueAt),
     resolvedAt: textValue(body.resolvedAt),
     assignedTo: textValue(body.assignedTo),
+    blockage: null,
   };
 
   const commonRequired = [
@@ -140,11 +144,26 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const input = parseCreateInput(await request.json());
+    const { payload, files, submissionId } = await readReportBody(request);
+    if (payload?.recordType === 'daily') {
+      const input = parseBlockedCallInput(payload);
+      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
+        throw new InputError('Please open a new blocked call report to submit photos.');
+      }
+      const photos = await validatePhotos(files);
+      const record = await createReportRecord(input, photos, submissionId);
+      return NextResponse.json({ record }, { status: 201 });
+    }
+    if (files.length) throw new InputError('Photo uploads are currently available for blocked calls.');
+    let input: CreateReportRecordInput;
+    try { input = parseCreateInput(payload); }
+    catch (error) { throw new InputError(error instanceof Error ? error.message : 'Check the report details.'); }
     const record = await createReportRecord(input);
     return NextResponse.json({ record }, { status: 201 });
   } catch (error) {
-    return errorResponse(error, 400);
+    if (error instanceof InputError) return errorResponse(error, error.status);
+    console.error('Report submission failed.', error instanceof Error ? error.name : 'Unknown error');
+    return NextResponse.json({ error: 'The report could not be saved. Your entries are still here; please try again.' }, { status: 500 });
   }
 }
 

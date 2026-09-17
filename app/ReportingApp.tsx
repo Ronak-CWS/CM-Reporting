@@ -1,6 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import BlockedCallWizard from './components/BlockedCallWizard';
+import ReportPhotoPreview from './components/ReportPhotoPreview';
+import { blockageScopeLabel } from '../lib/blocked-call-options';
 import {
   type FormEvent,
   useCallback,
@@ -18,15 +21,6 @@ import type {
 
 type View = 'dashboard' | 'daily' | 'complaints' | 'exports';
 type FormMode = RecordType | null;
-
-const DAILY_CATEGORIES = [
-  'Incident',
-  'Blocked call',
-  'Service problem',
-  'Missed collection',
-  'Corrective action',
-  'Other',
-];
 
 const COMPLAINT_CATEGORIES = [
   'Missed collection',
@@ -47,7 +41,6 @@ const CONTACT_MEDIA = [
   'Other',
 ];
 
-const SERVICE_TYPES = ['Waste', 'Recycling', 'Organics', 'Communal', 'Other'];
 const STATUS_OPTIONS: RecordStatus[] = ['Open', 'In progress', 'Resolved'];
 
 const NAV_ITEMS: Array<{ id: View; label: string; number: string }> = [
@@ -264,7 +257,7 @@ function DashboardView({
           <p className="eyebrow">CM operations</p>
           <h1>Daily reporting overview</h1>
           <p className="page-intro">
-            Log service events and complaints, follow corrective actions, and prepare
+            Log blocked calls and complaints, follow corrective actions, and prepare
             the records Circular Materials needs.
           </p>
         </div>
@@ -273,7 +266,7 @@ function DashboardView({
             Log complaint
           </button>
           <button className="button button--primary" type="button" onClick={() => onCreate('daily')}>
-            New daily report
+            Report blocked call
           </button>
         </div>
       </div>
@@ -342,8 +335,8 @@ function DashboardView({
           ) : (
             <EmptyState
               title="No reporting activity yet"
-              copy="Start with a daily operational report or log the first customer complaint."
-              actionLabel="New daily report"
+              copy="Report a blocked pickup or street, or log a customer complaint."
+              actionLabel="Report blocked call"
               onAction={() => onCreate('daily')}
             />
           )}
@@ -419,6 +412,10 @@ function RegisterView({
       record.employeeName,
       record.assignedTo,
       record.status,
+      record.blockage?.reasonLabel || '',
+      record.blockage?.streetFrom || '',
+      record.blockage?.streetTo || '',
+      record.blockage?.vehiclePlates || '',
     ].some((value) => value.toLowerCase().includes(query));
   });
 
@@ -427,15 +424,15 @@ function RegisterView({
       <div className="page-heading page-heading--register">
         <div>
           <p className="eyebrow">{isComplaint ? 'Exhibit 7 register' : 'Operations register'}</p>
-          <h1>{isComplaint ? 'Complaint reporting' : 'Daily operational reporting'}</h1>
+          <h1>{isComplaint ? 'Complaint reporting' : 'Daily reporting'}</h1>
           <p className="page-intro">
             {isComplaint
               ? 'Record every inquiry and complaint with customer details, the response taken, and the date and time of resolution.'
-              : 'Track incidents, blocked calls, service problems, and corrective actions as they happen.'}
+              : 'Pickup or street blocked? Add the location, choose a reason, and take a photo.'}
           </p>
         </div>
         <button className="button button--primary" type="button" onClick={onCreate}>
-          {isComplaint ? 'Log complaint' : 'New daily report'}
+          {isComplaint ? 'Log complaint' : 'Report blocked call'}
         </button>
       </div>
 
@@ -477,12 +474,12 @@ function RegisterView({
                   <small>{formatShortDateTime(record.occurredAt)}</small>
                 </span>
                 <span className="record-cell">
-                  <strong>{isComplaint ? record.customerName : record.category}</strong>
+                  <strong>{isComplaint ? record.customerName : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
                   <small>{record.registeredCommunity}</small>
                 </span>
                 <span className="record-cell record-cell--description">
                   <strong>{record.issueDescription}</strong>
-                  <small>{isComplaint ? record.contactMedium : [record.routeNumber, record.serviceType].filter(Boolean).join(' · ') || 'No route details'}</small>
+                  <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} photos` : ''].filter(Boolean).join(' · ') || 'No location details'}</small>
                 </span>
                 <span className="record-cell">
                   <strong>{isComplaint ? record.resolutionDescription || 'Pending' : record.assignedTo || 'Unassigned'}</strong>
@@ -498,8 +495,8 @@ function RegisterView({
         ) : (
           <EmptyState
             title={search || statusFilter ? 'No matching records' : isComplaint ? 'No complaints logged' : 'No daily reports logged'}
-            copy={search || statusFilter ? 'Adjust the search or status filter to see more records.' : isComplaint ? 'The Exhibit 7 complaint register will appear here.' : 'Daily incidents, problems, and corrective actions will appear here.'}
-            actionLabel={search || statusFilter ? undefined : isComplaint ? 'Log complaint' : 'New daily report'}
+            copy={search || statusFilter ? 'Adjust the search or status filter to see more records.' : isComplaint ? 'The Exhibit 7 complaint register will appear here.' : 'Blocked pickups and street blocks will appear here with their reasons and photos.'}
+            actionLabel={search || statusFilter ? undefined : isComplaint ? 'Log complaint' : 'Report blocked call'}
             onAction={search || statusFilter ? undefined : onCreate}
           />
         )}
@@ -546,7 +543,7 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
           <div>
             <p className="eyebrow">Daily summary</p>
             <h2>Operational activity export</h2>
-            <p>Includes incidents, blocked calls, complaints, root causes, corrective actions, and current status.</p>
+            <p>Includes blocked pickups, street blocks, reasons, photo references, complaints, corrective actions, and current status.</p>
           </div>
           <div className="date-range">
             <label>
@@ -625,16 +622,12 @@ function Field({
   );
 }
 
-function ReportFormModal({
-  mode,
-  onClose,
-  onSaved,
+function ComplaintFormModal({
+  onClose, onSaved,
 }: {
-  mode: RecordType;
   onClose: () => void;
   onSaved: (record: ReportRecord) => void;
 }) {
-  const isComplaint = mode === 'complaint';
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
@@ -642,52 +635,38 @@ function ReportFormModal({
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const handleKeyDown = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') onClose();
+      if (event.key === 'Escape' && !saving) onClose();
     };
     window.addEventListener('keydown', handleKeyDown);
-
     return () => {
       document.body.style.overflow = previousOverflow;
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [onClose]);
+  }, [onClose, saving]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (saving) return;
     setSaving(true);
     setError('');
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const value = (name: string) => String(values[name] ?? '').trim();
     const payload: CreateReportRecordInput = {
-      recordType: mode,
-      occurredAt: value('occurredAt'),
-      registeredCommunity: value('registeredCommunity'),
-      siteAddress: value('siteAddress'),
-      routeNumber: value('routeNumber'),
-      serviceType: value('serviceType'),
+      recordType: 'complaint', occurredAt: value('occurredAt'),
+      registeredCommunity: value('registeredCommunity'), siteAddress: '', routeNumber: '', serviceType: '',
       category: value('category'),
       priority: (value('priority') || 'Normal') as CreateReportRecordInput['priority'],
       status: (value('status') || 'Open') as RecordStatus,
-      contactMedium: value('contactMedium'),
-      employeeName: value('employeeName'),
-      employeeTitle: value('employeeTitle'),
-      customerName: value('customerName'),
-      customerAddress: value('customerAddress'),
-      customerContactInformation: value('customerContactInformation'),
-      issueDescription: value('issueDescription'),
-      rootCause: value('rootCause'),
-      correctiveAction: value('correctiveAction'),
-      resolutionDescription: value('resolutionDescription'),
-      resolutionDueAt: value('resolutionDueAt'),
-      resolvedAt: value('resolvedAt'),
-      assignedTo: value('assignedTo'),
+      contactMedium: value('contactMedium'), employeeName: value('employeeName'),
+      employeeTitle: value('employeeTitle'), customerName: value('customerName'),
+      customerAddress: value('customerAddress'), customerContactInformation: value('customerContactInformation'),
+      issueDescription: value('issueDescription'), rootCause: '', correctiveAction: '',
+      resolutionDescription: value('resolutionDescription'), resolutionDueAt: '',
+      resolvedAt: value('resolvedAt'), assignedTo: value('assignedTo'), blockage: null,
     };
-
     try {
       const response = await fetch('/api/records', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const result = await readApiResponse<{ record: ReportRecord }>(response);
       onSaved(result.record);
@@ -699,163 +678,53 @@ function ReportFormModal({
 
   return (
     <div className="modal-backdrop" role="presentation" onMouseDown={(event) => {
-      if (event.currentTarget === event.target) onClose();
+      if (event.currentTarget === event.target && !saving) onClose();
     }}>
       <section className="report-modal" role="dialog" aria-modal="true" aria-labelledby="report-form-title">
         <header className="report-modal__header">
-          <div>
-            <p className="eyebrow">{isComplaint ? 'Exhibit 7 entry' : 'Daily operations'}</p>
-            <h2 id="report-form-title">{isComplaint ? 'Log an inquiry or complaint' : 'Create a daily report'}</h2>
-            <p>{isComplaint ? 'Capture the complete customer and resolution record.' : 'Record the event, operational context, and corrective action.'}</p>
-          </div>
-          <button className="icon-button" type="button" onClick={onClose} aria-label="Close form">×</button>
+          <div><p className="eyebrow">Exhibit 7 entry</p><h2 id="report-form-title">Log an inquiry or complaint</h2><p>Capture the complete customer and resolution record.</p></div>
+          <button className="icon-button" type="button" disabled={saving} onClick={onClose} aria-label="Close form">×</button>
         </header>
-
         <form className="report-form" onSubmit={handleSubmit}>
           {error ? <div className="form-error" role="alert">{error}</div> : null}
-
-          <fieldset>
-            <legend>{isComplaint ? 'Inquiry details' : 'Report details'}</legend>
+          <fieldset disabled={saving}>
+            <legend>Inquiry details</legend>
             <div className="form-grid">
-              <Field label={isComplaint ? 'Date and time of inquiry or complaint' : 'Date and time of event'} name="occurredAt" required>
-                <input id="occurredAt" name="occurredAt" type="datetime-local" defaultValue={edmontonDateTimeLocal()} required />
-              </Field>
-              <Field label="Registered community" name="registeredCommunity" required>
-                <input id="registeredCommunity" name="registeredCommunity" type="text" placeholder="Enter community" required />
-              </Field>
-              {isComplaint ? (
-                <Field label="Contact medium" name="contactMedium" required>
-                  <select id="contactMedium" name="contactMedium" defaultValue="" required>
-                    <option value="" disabled>Choose contact method</option>
-                    {CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}
-                  </select>
-                </Field>
-              ) : (
-                <Field label="Event category" name="category" required>
-                  <select id="category" name="category" defaultValue="" required>
-                    <option value="" disabled>Choose category</option>
-                    {DAILY_CATEGORIES.map((option) => <option key={option}>{option}</option>)}
-                  </select>
-                </Field>
-              )}
-              <Field label="Priority" name="priority" required>
-                <select id="priority" name="priority" defaultValue="Normal" required>
-                  {['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}
-                </select>
-              </Field>
-              {isComplaint ? (
-                <Field label="Inquiry or complaint category" name="category" required>
-                  <select id="category" name="category" defaultValue="" required>
-                    <option value="" disabled>Choose category</option>
-                    {COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}
-                  </select>
-                </Field>
-              ) : null}
+              <Field label="Date and time of inquiry or complaint" name="occurredAt" required><input id="occurredAt" name="occurredAt" type="datetime-local" defaultValue={edmontonDateTimeLocal()} required /></Field>
+              <Field label="Registered community" name="registeredCommunity" required><input id="registeredCommunity" name="registeredCommunity" type="text" placeholder="Enter community" required /></Field>
+              <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Inquiry or complaint category" name="category" required><select id="category" name="category" defaultValue="" required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>
             </div>
           </fieldset>
-
-          <fieldset>
-            <legend>{isComplaint ? 'Employee logging the record' : 'Service context'}</legend>
+          <fieldset disabled={saving}>
+            <legend>Employee logging the record</legend>
             <div className="form-grid">
-              {isComplaint ? (
-                <>
-                  <Field label="Employee name" name="employeeName" required>
-                    <input id="employeeName" name="employeeName" type="text" autoComplete="name" required />
-                  </Field>
-                  <Field label="Employee title" name="employeeTitle" required>
-                    <input id="employeeTitle" name="employeeTitle" type="text" placeholder="Customer service representative" required />
-                  </Field>
-                </>
-              ) : (
-                <>
-                  <Field label="Site or service address" name="siteAddress">
-                    <input id="siteAddress" name="siteAddress" type="text" placeholder="Street address or site name" />
-                  </Field>
-                  <Field label="Route number" name="routeNumber">
-                    <input id="routeNumber" name="routeNumber" type="text" placeholder="e.g., 41103" />
-                  </Field>
-                  <Field label="Service type" name="serviceType">
-                    <select id="serviceType" name="serviceType" defaultValue="">
-                      <option value="">Choose service type</option>
-                      {SERVICE_TYPES.map((option) => <option key={option}>{option}</option>)}
-                    </select>
-                  </Field>
-                  <Field label="Logged by" name="employeeName" required>
-                    <input id="employeeName" name="employeeName" type="text" autoComplete="name" required />
-                  </Field>
-                </>
-              )}
+              <Field label="Employee name" name="employeeName" required><input id="employeeName" name="employeeName" type="text" autoComplete="name" required /></Field>
+              <Field label="Employee title" name="employeeTitle" required><input id="employeeTitle" name="employeeTitle" type="text" placeholder="Customer service representative" required /></Field>
             </div>
           </fieldset>
-
-          {isComplaint ? (
-            <fieldset>
-              <legend>Person making the inquiry or complaint</legend>
-              <div className="form-grid">
-                <Field label="Customer name" name="customerName" required>
-                  <input id="customerName" name="customerName" type="text" autoComplete="name" required />
-                </Field>
-                <Field label="Address" name="customerAddress" required>
-                  <input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required />
-                </Field>
-                <Field label="Contact information" name="customerContactInformation" required hint="Phone number, email address, or other preferred contact.">
-                  <input id="customerContactInformation" name="customerContactInformation" type="text" required />
-                </Field>
-                <Field label="Assigned to" name="assignedTo">
-                  <input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" />
-                </Field>
-              </div>
-            </fieldset>
-          ) : null}
-
-          <fieldset>
-            <legend>{isComplaint ? 'Complaint and resolution' : 'Event and corrective action'}</legend>
+          <fieldset disabled={saving}>
+            <legend>Person making the inquiry or complaint</legend>
             <div className="form-grid">
-              <Field label={isComplaint ? 'Description of inquiry or complaint' : 'Incident, problem, or action description'} name="issueDescription" required>
-                <textarea id="issueDescription" name="issueDescription" rows={4} required />
-              </Field>
-              {isComplaint ? (
-                <Field label="Description of resolution" name="resolutionDescription">
-                  <textarea id="resolutionDescription" name="resolutionDescription" rows={4} placeholder="Leave blank if the complaint is still open" />
-                </Field>
-              ) : (
-                <Field label="Root cause" name="rootCause">
-                  <textarea id="rootCause" name="rootCause" rows={4} />
-                </Field>
-              )}
-              {!isComplaint ? (
-                <Field label="Corrective action" name="correctiveAction">
-                  <textarea id="correctiveAction" name="correctiveAction" rows={4} />
-                </Field>
-              ) : null}
-              {!isComplaint ? (
-                <Field label="Assigned to" name="assignedTo">
-                  <input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" />
-                </Field>
-              ) : null}
-              <Field label="Status" name="status" required>
-                <select id="status" name="status" defaultValue="Open" required>
-                  {STATUS_OPTIONS.map((option) => <option key={option}>{option}</option>)}
-                </select>
-              </Field>
-              {isComplaint ? (
-                <Field label="Date and time of resolution" name="resolvedAt">
-                  <input id="resolvedAt" name="resolvedAt" type="datetime-local" />
-                </Field>
-              ) : (
-                <Field label="Resolution due" name="resolutionDueAt">
-                  <input id="resolutionDueAt" name="resolutionDueAt" type="datetime-local" />
-                </Field>
-              )}
+              <Field label="Customer name" name="customerName" required><input id="customerName" name="customerName" type="text" required /></Field>
+              <Field label="Address" name="customerAddress" required><input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required /></Field>
+              <Field label="Contact information" name="customerContactInformation" required hint="Phone number, email address, or other preferred contact."><input id="customerContactInformation" name="customerContactInformation" type="text" required /></Field>
+              <Field label="Assigned to" name="assignedTo"><input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" /></Field>
             </div>
           </fieldset>
-
+          <fieldset disabled={saving}>
+            <legend>Complaint and resolution</legend>
+            <div className="form-grid">
+              <Field label="Description of inquiry or complaint" name="issueDescription" required><textarea id="issueDescription" name="issueDescription" rows={4} required /></Field>
+              <Field label="Description of resolution" name="resolutionDescription"><textarea id="resolutionDescription" name="resolutionDescription" rows={4} placeholder="Leave blank if the complaint is still open" /></Field>
+              <Field label="Status" name="status" required><select id="status" name="status" defaultValue="Open" required>{STATUS_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Date and time of resolution" name="resolvedAt"><input id="resolvedAt" name="resolvedAt" type="datetime-local" /></Field>
+            </div>
+          </fieldset>
           <footer className="report-form__footer">
             <span><b>*</b> Required for the reporting record</span>
-            <div>
-              <button className="button button--secondary" type="button" onClick={onClose} disabled={saving}>Cancel</button>
-              <button className="button button--primary" type="submit" disabled={saving}>{saving ? 'Saving…' : isComplaint ? 'Save complaint' : 'Save daily report'}</button>
-            </div>
+            <div><button className="button button--secondary" type="button" onClick={onClose} disabled={saving}>Cancel</button><button className="button button--primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save complaint'}</button></div>
           </footer>
         </form>
       </section>
@@ -953,6 +822,11 @@ function RecordDetails({
             <dl className="detail-grid">
               <DetailItem label="Registered community" value={record.registeredCommunity} />
               <DetailItem label="Category" value={record.category} />
+              <DetailItem label="Blockage" value={record.blockage && blockageScopeLabel(record.blockage.scope)} />
+              <DetailItem label="Blocked-call reason" value={record.blockage?.reasonLabel} />
+              <DetailItem label="Street section from" value={record.blockage?.streetFrom} />
+              <DetailItem label="Street section to" value={record.blockage?.streetTo} />
+              <DetailItem label="Vehicle plates" value={record.blockage?.vehiclePlates} />
               <DetailItem label="Site address" value={record.siteAddress} />
               <DetailItem label="Route" value={record.routeNumber} />
               <DetailItem label="Service" value={record.serviceType} />
@@ -975,10 +849,27 @@ function RecordDetails({
           ) : null}
 
           <section className="detail-section">
-            <h3>{record.recordType === 'complaint' ? 'Inquiry or complaint' : 'Incident or problem'}</h3>
+            <h3>{record.recordType === 'complaint' ? 'Inquiry or complaint' : 'Blocked call details'}</h3>
             <p className="detail-prose">{record.issueDescription}</p>
             {record.rootCause ? <><h4>Root cause</h4><p className="detail-prose">{record.rootCause}</p></> : null}
           </section>
+
+          {record.photos?.length ? (
+            <section className="detail-section">
+              <h3>Photo evidence ({record.photos.length})</h3>
+              <div className="saved-photo-grid">
+                {record.photos.map((photo, index) => (
+                  <figure key={photo.id}>
+                    <a href={photo.url} target="_blank" rel="noreferrer" aria-label={`Open blockage photo ${index + 1}`}>
+                      <ReportPhotoPreview src={photo.url} name={`Blockage photo ${index + 1}`} />
+                    </a>
+                    <figcaption>{photo.fileName}</figcaption>
+                    <a className="text-button" href={`${photo.url}?download=1`}>Download photo</a>
+                  </figure>
+                ))}
+              </div>
+            </section>
+          ) : null}
 
           <form className="resolution-form" onSubmit={handleUpdate}>
             <h3>Resolution and follow-up</h3>
@@ -1062,10 +953,10 @@ export default function ReportingApp() {
   );
 
   function handleCreated(record: ReportRecord) {
-    setRecords((current) => [record, ...current]);
-    setFormMode(null);
+    setRecords((current) => [record, ...current.filter((item) => item.id !== record.id)]);
+    if (record.recordType === 'complaint') setFormMode(null);
     setView(record.recordType === 'complaint' ? 'complaints' : 'daily');
-    setToast(`${record.referenceNumber} saved successfully.`);
+    if (record.recordType === 'complaint') setToast(`${record.referenceNumber} saved successfully.`);
   }
 
   function handleUpdated(record: ReportRecord) {
@@ -1075,6 +966,10 @@ export default function ReportingApp() {
   }
 
   const viewLabel = NAV_ITEMS.find((item) => item.id === view)?.label ?? 'Dashboard';
+
+  if (formMode === 'daily') {
+    return <BlockedCallWizard onClose={() => setFormMode(null)} onSaved={handleCreated} />;
+  }
 
   return (
     <main className="app-shell">
@@ -1171,7 +1066,7 @@ export default function ReportingApp() {
         </div>
       </section>
 
-      {formMode ? <ReportFormModal mode={formMode} onClose={() => setFormMode(null)} onSaved={handleCreated} /> : null}
+      {formMode === 'complaint' ? <ComplaintFormModal onClose={() => setFormMode(null)} onSaved={handleCreated} /> : null}
       {selectedRecord ? <RecordDetails record={selectedRecord} onClose={() => setSelectedRecordId('')} onUpdated={handleUpdated} /> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </main>

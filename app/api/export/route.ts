@@ -72,6 +72,14 @@ function dailySummaryCsv(records: ReportRecord[]) {
     'Resolved At',
     'Assigned To',
     'Logged By',
+    'Blockage Scope',
+    'Blocked Call Reason',
+    'Street Section From',
+    'Street Section To',
+    'Vehicle Plates',
+    'Photo Count',
+    'Photo Files',
+    'Photo Paths (open on CM Reporting)',
   ];
   const rows = records.map((record) => [
     record.referenceNumber,
@@ -92,6 +100,14 @@ function dailySummaryCsv(records: ReportRecord[]) {
     record.resolvedAt,
     record.assignedTo,
     record.employeeName,
+    record.blockage?.scope === 'street' ? 'Street block' : record.blockage?.scope === 'pickup' ? 'Pickup location' : '',
+    record.blockage?.reasonLabel || '',
+    record.blockage?.streetFrom || '',
+    record.blockage?.streetTo || '',
+    record.blockage?.vehiclePlates || '',
+    record.photos.length,
+    record.photos.map((photo) => photo.fileName).join(' | '),
+    record.photos.map((photo) => photo.url).join(' | '),
   ]);
 
   return buildCsv(headers, rows);

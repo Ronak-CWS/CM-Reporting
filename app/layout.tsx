@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cm-catchment-9-reporting.lucky-grape-8310.chatgpt.site'),
+  metadataBase: new URL('https://cm-catchment-9-reporting.rtandon58056.chatgpt.site'),
   title: 'CM Reporting',
   description:
     'Daily operations and customer complaint reporting for Circular Materials Catchment 9.',

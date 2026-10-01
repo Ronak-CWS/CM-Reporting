@@ -1,4 +1,4 @@
-import { InputError } from './blocked-call-input';
+import { InputError } from './input-error';
 import { MAX_TOTAL_PHOTO_BYTES } from './photo-validation';
 
 export async function readReportBody(request: Request) {

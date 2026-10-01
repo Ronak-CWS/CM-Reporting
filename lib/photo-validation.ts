@@ -1,4 +1,4 @@
-import { InputError } from './blocked-call-input';
+import { InputError } from './input-error';
 
 export const MAX_PHOTOS = 6;
 export const MAX_PHOTO_BYTES = 10 * 1024 * 1024;

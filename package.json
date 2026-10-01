@@ -9,6 +9,8 @@
     "dev": "next dev --hostname 127.0.0.1",
     "build": "next build --webpack",
     "start": "next start --hostname 127.0.0.1",
+    "storage:backup": "node scripts/storage-maintenance.mjs backup",
+    "storage:verify": "node scripts/storage-maintenance.mjs verify",
     "lint": "eslint . --ignore-pattern dist --ignore-pattern .next",
     "typecheck": "tsc --noEmit --incremental false",
     "test": "vitest run",

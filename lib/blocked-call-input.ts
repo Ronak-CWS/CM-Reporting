@@ -2,12 +2,8 @@ import { findBlockedReason, blockageScopeLabel } from './blocked-call-options';
 import type { BlockageScope, CreateReportRecordInput } from './report-types';
 import { edmontonTimestamp } from './report-time';
 
-export class InputError extends Error {
-  constructor(message: string, public status = 400) {
-    super(message);
-    this.name = 'InputError';
-  }
-}
+import { InputError } from './input-error';
+export { InputError } from './input-error';
 
 function text(body: Record<string, unknown>, key: string, limit = 250) {
   const value = typeof body[key] === 'string' ? body[key].trim() : '';

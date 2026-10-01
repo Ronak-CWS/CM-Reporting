@@ -1,0 +1,5 @@
+[
+  { "community": "Test community", "address": "123 Test Street", "street": "Test Street" },
+  { "community": "Test community", "address": "456 Test Avenue", "street": "Test Avenue" },
+  { "community": "Second community", "address": "789 Other Road", "street": "Other Road" }
+]

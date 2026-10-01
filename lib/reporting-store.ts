@@ -1,5 +1,5 @@
-import { env } from 'cloudflare:workers';
-import { InputError } from './blocked-call-input';
+import { getDatabase, getPhotoStorage, type StorageDatabase } from './local-storage';
+import { InputError } from './input-error';
 import { EVIDENCE_SCHEMA_SQL } from './evidence-schema';
 import type { ValidatedPhoto } from './photo-validation';
 import { edmontonTimestamp } from './report-time';
@@ -12,7 +12,7 @@ import type {
 
 type DatabaseRow = Record<string, unknown>;
 
-let initializationPromise: Promise<void> | null = null;
+const schemaInitializations = new WeakMap<StorageDatabase, Promise<void>>();
 
 const CREATE_REPORT_RECORDS_TABLE = `
   CREATE TABLE IF NOT EXISTS report_records (
@@ -46,16 +46,7 @@ const CREATE_REPORT_RECORDS_TABLE = `
   )
 `;
 
-function getDatabase() {
-  if (!env.DB) {
-    throw new Error('The CM reporting database is not available.');
-  }
-
-  return env.DB;
-}
-
-async function initializeSchema() {
-  const database = getDatabase();
+async function initializeSchema(database: StorageDatabase) {
 
   await database.batch([
     database.prepare(CREATE_REPORT_RECORDS_TABLE),
@@ -74,14 +65,14 @@ async function initializeSchema() {
 }
 
 async function ensureSchema() {
-  if (!initializationPromise) {
-    initializationPromise = initializeSchema().catch((error) => {
-      initializationPromise = null;
+  const database = getDatabase();
+  if (!schemaInitializations.has(database)) {
+    schemaInitializations.set(database, initializeSchema(database).catch((error) => {
+      schemaInitializations.delete(database);
       throw error;
-    });
+    }));
   }
-
-  await initializationPromise;
+  await schemaInitializations.get(database);
 }
 
 function asText(value: unknown) {
@@ -133,7 +124,7 @@ function mapPhoto(row: DatabaseRow): ReportPhoto {
 async function attachEvidence(records: ReportRecord[]) {
   const database = getDatabase();
   const byId = new Map(records.map((record) => [record.id, record]));
-  // Stay under D1's bound-parameter limit when hydrating the register.
+  // Keep each metadata query bounded when hydrating the register.
   for (let offset = 0; offset < records.length; offset += 80) {
     const ids = records.slice(offset, offset + 80).map((record) => record.id);
     const placeholders = ids.map(() => '?').join(',');
@@ -182,8 +173,7 @@ export async function readReportPhoto(recordId: string, photoId: string) {
     'SELECT * FROM report_photos WHERE record_id = ? AND id = ?',
   ).bind(recordId, photoId).first<DatabaseRow>();
   if (!row) return null;
-  if (!env.PHOTOS) throw new Error('Photo storage is not available.');
-  const object = await env.PHOTOS.get(asText(row.storage_key));
+  const object = await getPhotoStorage().get(asText(row.storage_key));
   return object ? { object, photo: mapPhoto(row) } : null;
 }
 
@@ -217,6 +207,7 @@ export async function listReportRecords() {
 export async function createReportRecord(input: CreateReportRecordInput, photos: ValidatedPhoto[] = [], submissionId?: string) {
   await ensureSchema();
   const database = getDatabase();
+  const photoStorage = getPhotoStorage();
   const now = new Date().toISOString();
   const id = submissionId || crypto.randomUUID();
   if (input.recordType === 'daily' && (!input.blockage || !photos.length)) {
@@ -284,12 +275,13 @@ export async function createReportRecord(input: CreateReportRecordInput, photos:
   }
 
   try {
-    if (photos.length && !env.PHOTOS) throw new Error('Photo storage is not available.');
     for (const [position, photo] of photos.entries()) {
       const photoId = crypto.randomUUID();
-      const storageKey = `reports/${id}/${photoId}`;
+      const extension = ({ 'image/jpeg': 'jpg', 'image/png': 'png', 'image/webp': 'webp', 'image/gif': 'gif', 'image/heic': 'heic', 'image/heif': 'heif' } as Record<string, string>)[photo.contentType];
+      if (!extension) throw new Error('Unsupported photo content type.');
+      const storageKey = `reports/${id}/${photoId}.${extension}`;
       attemptedKeys.push(storageKey);
-      await env.PHOTOS.put(storageKey, photo.bytes, { httpMetadata: { contentType: photo.contentType } });
+      await photoStorage.put(storageKey, photo.bytes, { httpMetadata: { contentType: photo.contentType } });
       storedPhotos.push({ id: photoId, fileName: photo.fileName, contentType: photo.contentType,
         size: photo.bytes.byteLength, url: `/api/records/${id}/photos/${photoId}`, storageKey });
       statements.push(database.prepare(
@@ -307,17 +299,17 @@ export async function createReportRecord(input: CreateReportRecordInput, photos:
         // Never remove photos if a database outage makes the commit uncertain.
         // A retry with the same submission ID will recover a committed report.
         if (!(verificationError instanceof InputError)) throw error;
-        if (attemptedKeys.length) await env.PHOTOS.delete(attemptedKeys).catch(() => console.error('Could not remove conflicting retry photos.'));
+        if (attemptedKeys.length) await photoStorage.delete(attemptedKeys).catch(() => console.error('Could not remove conflicting retry photos.'));
         throw verificationError;
       }
       if (committed) {
         const savedPhotoIds = new Set(committed.photos.map((photo) => photo.id));
         const unusedKeys = storedPhotos.filter((photo) => !savedPhotoIds.has(photo.id)).map((photo) => photo.storageKey);
-        if (unusedKeys.length) await env.PHOTOS.delete(unusedKeys).catch(() => console.error('Could not remove unused retry photos.'));
+        if (unusedKeys.length) await photoStorage.delete(unusedKeys).catch(() => console.error('Could not remove unused retry photos.'));
         return committed;
       }
     }
-    if (attemptedKeys.length) await env.PHOTOS.delete(attemptedKeys).catch(() => console.error('Could not remove incomplete upload photos.'));
+    if (attemptedKeys.length) await photoStorage.delete(attemptedKeys).catch(() => console.error('Could not remove incomplete upload photos.'));
     throw error;
   }
 

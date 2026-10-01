@@ -1,10 +1,18 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { mkdtemp, readdir, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { backupStorage, verifyBackup } from '../scripts/storage-maintenance.mjs';
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
-import { Miniflare } from 'miniflare';
+import { createLocalStorage, type PhotoStorage, type StorageDatabase } from '../lib/local-storage';
 import type { ReportRecord } from '../lib/report-types';
 
-const { runtime } = vi.hoisted(() => ({ runtime: { env: {} as Record<string, unknown> } }));
-vi.mock('cloudflare:workers', () => ({ env: runtime.env }));
+const { runtime } = vi.hoisted(() => ({ runtime: { storage: undefined as ReturnType<typeof createLocalStorage> | undefined, photos: undefined as PhotoStorage | undefined } }));
+vi.mock('../lib/local-storage', async (importOriginal) => ({
+  ...await importOriginal<typeof import('../lib/local-storage')>(),
+  getDatabase: () => runtime.storage!.database,
+  getPhotoStorage: () => runtime.photos || runtime.storage!.photos,
+}));
 
 import { GET, POST, PATCH } from '../app/api/records/route';
 import { GET as getPhoto } from '../app/api/records/[id]/photos/[photoId]/route';
@@ -16,9 +24,14 @@ const baseReport = {
   registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Test Driver',
   streetFrom: 'First Avenue', streetTo: 'Third Avenue',
 };
-let miniflare: Miniflare;
-let database: D1Database;
-let bucket: R2Bucket;
+let directory: string;
+let testRoot: string;
+let database: StorageDatabase;
+
+async function photoFiles(id: string) {
+  try { return await readdir(path.join(directory, 'photos', 'reports', id)); }
+  catch (error) { if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []; throw error; }
+}
 
 function submission(id = crypto.randomUUID(), patch = {}, includePhoto = true, count = 1) {
   const form = new FormData();
@@ -29,16 +42,10 @@ function submission(id = crypto.randomUUID(), patch = {}, includePhoto = true, c
 }
 
 beforeAll(async () => {
-  miniflare = new Miniflare({
-    modules: true,
-    script: 'export default { fetch() { return new Response("isolated test runtime") } }',
-    compatibilityDate: '2026-05-15',
-    d1Databases: ['DB'], r2Buckets: ['PHOTOS'],
-  });
-  database = await miniflare.getD1Database('DB') as unknown as D1Database;
-  bucket = await miniflare.getR2Bucket('PHOTOS') as unknown as R2Bucket;
-  runtime.env.DB = database;
-  runtime.env.PHOTOS = bucket;
+  testRoot = await mkdtemp(path.join(tmpdir(), 'cm-reporting-api-test-'));
+  directory = path.join(testRoot, 'live');
+  runtime.storage = createLocalStorage(directory);
+  database = runtime.storage.database;
   // Apply the actual committed migration sequence to a fresh test database.
   const migrations = (await readdir(new URL('../drizzle/', import.meta.url))).filter((name) => name.endsWith('.sql')).sort();
   for (const name of migrations) {
@@ -48,7 +55,7 @@ beforeAll(async () => {
     }
   }
 }, 30000);
-afterAll(async () => { await miniflare?.dispose(); });
+afterAll(async () => { runtime.storage?.close(); if (testRoot) await rm(testRoot, { recursive: true, force: true }); });
 
 describe('durable blocked call reports', () => {
   it('saves the street report, reloads evidence, and serves/downloads the original image', async () => {
@@ -57,6 +64,10 @@ describe('durable blocked call reports', () => {
     const { record } = await response.json() as { record: ReportRecord };
     expect(record.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Flooded street', streetFrom: 'First Avenue' });
     expect(record.photos).toHaveLength(1);
+    // Reopen the on-disk database and folder, as after an application restart.
+    runtime.storage!.close();
+    runtime.storage = createLocalStorage(directory);
+    database = runtime.storage.database;
     const list = await (await GET()).json() as { records: ReportRecord[] };
     expect(list.records.find((item) => item.id === record.id)?.photos).toEqual(record.photos);
     const photo = record.photos[0];
@@ -90,8 +101,8 @@ describe('durable blocked call reports', () => {
     const a = await first.json() as { record: ReportRecord };
     const b = await retry.json() as { record: ReportRecord };
     expect(a.record).toEqual(b.record);
-    expect((await bucket.list({ prefix: `reports/${id}/` })).objects).toHaveLength(1);
-    expect((await POST(submission(id, { siteAddress: 'A changed address' }))).status).toBe(409);
+    expect(await photoFiles(id)).toHaveLength(1);
+    expect((await POST(submission(id, { siteAddress: 'Test Avenue' }))).status).toBe(409);
   });
 
   it('requires photos for both scopes and rejects other submission types and invalid reasons', async () => {
@@ -106,21 +117,24 @@ describe('durable blocked call reports', () => {
   it('does not leave a partial record or earlier photos if an upload fails', async () => {
     const id = crypto.randomUUID();
     let uploads = 0;
-    runtime.env.PHOTOS = {
-      put: async (...args: Parameters<R2Bucket['put']>) => {
+    const photos = runtime.storage!.photos;
+    runtime.photos = {
+      ...photos,
+      put: async (...args: Parameters<PhotoStorage['put']>) => {
         if (++uploads === 2) throw new Error('Test upload interruption');
-        return bucket.put(...args);
+        return photos.put(...args);
       },
-      delete: (keys: string[]) => bucket.delete(keys),
     };
     const errorLog = vi.spyOn(console, 'error').mockImplementation(() => {});
     try {
       expect((await POST(submission(id, {}, true, 2))).status).toBe(500);
       expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toBeNull();
-      expect((await bucket.list({ prefix: `reports/${id}/` })).objects).toHaveLength(0);
-    } finally { runtime.env.PHOTOS = bucket; errorLog.mockRestore(); }
+      expect(await photoFiles(id)).toHaveLength(0);
+    } finally { runtime.photos = undefined; errorLog.mockRestore(); }
     expect((await POST(submission(id, {}, true, 2))).status).toBe(201);
   });
+
+
 
   it('continues to save and export the original Exhibit 7 complaint fields', async () => {
     const response = await POST(new Request('https://cm.test/api/records', {
@@ -137,5 +151,26 @@ describe('durable blocked call reports', () => {
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=complaints'))).text();
     expect(csv.split('\r\n')[0].split('","')).toHaveLength(12);
     expect(csv).toContain('"Test Staff","Dispatcher","Test Customer","456 Example Avenue","customer@example.invalid","Test complaint"');
+  });
+
+  it('backs up a live SQLite database with every referenced original photo and verifies restoration', async () => {
+    const destination = path.join(testRoot, 'backup');
+    const catalogue = fileURLToPath(new URL('./fixtures/service-locations.json', import.meta.url));
+    const manifest = await backupStorage(directory, destination, catalogue);
+    expect(manifest.reports).toBeGreaterThan(0);
+    expect(manifest.photos).toBeGreaterThan(0);
+    expect(await verifyBackup(destination)).toEqual({ reports: manifest.reports, photos: manifest.photos });
+    await expect(backupStorage(directory, destination, catalogue)).rejects.toThrow();
+    const live = runtime.storage!;
+    const restored = createLocalStorage(destination);
+    try {
+      runtime.storage = restored;
+      const { records } = await (await GET()).json() as { records: ReportRecord[] };
+      expect(records).toHaveLength(manifest.reports);
+      for (const record of records) for (const photo of record.photos) {
+        const response = await getPhoto(new Request(`https://cm.test${photo.url}`), { params: Promise.resolve({ id: record.id, photoId: photo.id }) });
+        expect(new Uint8Array(await response.arrayBuffer())).toEqual(photoBytes);
+      }
+    } finally { runtime.storage = live; restored.close(); }
   });
 });

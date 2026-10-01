@@ -3,6 +3,7 @@
 import Image from 'next/image';
 import BlockedCallWizard from './components/BlockedCallWizard';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
+import AppIcon, { type AppIconName } from './components/AppIcon';
 import { blockageScopeLabel } from '../lib/blocked-call-options';
 import {
   type FormEvent,
@@ -43,11 +44,11 @@ const CONTACT_MEDIA = [
 
 const STATUS_OPTIONS: RecordStatus[] = ['Open', 'In progress', 'Resolved'];
 
-const NAV_ITEMS: Array<{ id: View; label: string; number: string }> = [
-  { id: 'dashboard', label: 'Dashboard', number: '01' },
-  { id: 'daily', label: 'Daily reports', number: '02' },
-  { id: 'complaints', label: 'Complaints', number: '03' },
-  { id: 'exports', label: 'Exports', number: '04' },
+const NAV_ITEMS: Array<{ id: View; label: string }> = [
+  { id: 'dashboard', label: 'Dashboard' },
+  { id: 'daily', label: 'Daily reports' },
+  { id: 'complaints', label: 'Complaints' },
+  { id: 'exports', label: 'Exports' },
 ];
 
 function edmontonParts(date = new Date()) {
@@ -181,16 +182,21 @@ function MetricCard({
   label,
   value,
   detail,
+  icon,
   tone = 'default',
 }: {
   label: string;
   value: number | string;
   detail: string;
-  tone?: 'default' | 'accent' | 'warning' | 'positive';
+  icon: AppIconName;
+  tone?: 'default' | 'accent' | 'warning' | 'positive' | 'complaint';
 }) {
   return (
     <article className={`metric-card metric-card--${tone}`}>
-      <span className="metric-card__label">{label}</span>
+      <div className="metric-card__heading">
+        <span className="metric-card__label">{label}</span>
+        <span className="metric-card__icon"><AppIcon name={icon} size={20} /></span>
+      </div>
       <strong>{value}</strong>
       <span className={`metric-card__detail metric-card__detail--${tone}`}>
         {detail}
@@ -274,23 +280,28 @@ function DashboardView({
       <section className="metric-grid" aria-label="Today's reporting summary">
         <MetricCard
           label="Records today"
+          icon="daily"
           value={todayRecords.length}
           detail={`${communities.size} registered ${communities.size === 1 ? 'community' : 'communities'}`}
           tone="accent"
         />
         <MetricCard
           label="Open actions"
+          icon="clock"
           value={openActions.length}
           detail={`${flaggedActions.length} high priority`}
           tone={flaggedActions.length ? 'warning' : 'default'}
         />
         <MetricCard
           label="Complaints today"
+          icon="complaints"
           value={todayComplaints.length}
           detail={`${todayComplaints.filter((record) => record.status !== 'Open').length} acknowledged or resolved`}
+          tone="complaint"
         />
         <MetricCard
           label="Resolved today"
+          icon="check"
           value={resolvedToday.length}
           detail={resolvedToday.length ? 'Corrective actions recorded' : 'No resolutions yet'}
           tone="positive"
@@ -321,7 +332,7 @@ function DashboardView({
                   onClick={() => onOpenRecord(record)}
                 >
                   <span className={`activity-type activity-type--${record.recordType}`}>
-                    {record.recordType === 'complaint' ? 'C' : 'D'}
+                    <AppIcon name={record.recordType === 'complaint' ? 'complaints' : 'daily'} size={20} />
                   </span>
                   <span className="activity-main">
                     <strong>{record.issueDescription}</strong>
@@ -910,6 +921,7 @@ function RecordDetails({
 
 export default function ReportingApp() {
   const [view, setView] = useState<View>('dashboard');
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<ReportRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
@@ -972,37 +984,48 @@ export default function ReportingApp() {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell${sidebarCollapsed ? ' app-shell--collapsed' : ''}`}>
       <aside className="sidebar">
-        <button className="brand-mark" type="button" onClick={() => setView('dashboard')} aria-label="CM Reporting dashboard">
-          <Image
-            className="brand-logo"
-            src="/collective-waste-solutions.png"
-            alt="Collective Waste Solutions"
-            width={172}
-            height={43}
-            priority
-          />
-          <span className="brand-product">CM Reporting</span>
-        </button>
+        <div className="sidebar-heading">
+          <button className="brand-mark" type="button" onClick={() => setView('dashboard')} aria-label="CM Reporting dashboard">
+            <span className="brand-product">CM Reporting</span>
+          </button>
+          <button className="sidebar-toggle" type="button" aria-controls="primary-navigation" aria-expanded={!sidebarCollapsed}
+            aria-label={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'} title={sidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            onClick={() => setSidebarCollapsed((collapsed) => !collapsed)}>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="16" rx="3" /><path d="M9 4v16" />
+              <path d={sidebarCollapsed ? 'm13 9 3 3-3 3' : 'm17 9-3 3 3 3'} />
+            </svg>
+          </button>
+        </div>
+        <div className="sidebar-logos" aria-label="Reporting partners">
+          <Image className="brand-logo" src={'/collective-waste-solutions.png'} alt="Collective Waste Solutions" width={172} height={43} priority />
+          <span className="sidebar-logo-divider" aria-hidden="true" />
+          <Image className="partner-logo" src={'/Circular Materials Logo - Colour (1).png'} alt="Circular Materials" width={144} height={79} priority />
+        </div>
+        <p className="sidebar-scope">C9 &amp; Wood Buffalo</p>
 
-        <nav className="primary-nav" aria-label="Primary navigation">
+        <nav id="primary-navigation" className="primary-nav" aria-label="Primary navigation">
           {NAV_ITEMS.map((item) => (
             <button
               className={`nav-item${view === item.id ? ' nav-item--active' : ''}`}
               type="button"
               key={item.id}
               onClick={() => setView(item.id)}
+              aria-label={item.label}
+              aria-current={view === item.id ? 'page' : undefined}
+              title={sidebarCollapsed ? item.label : undefined}
             >
-              <span className="nav-item__icon">{item.number}</span>
-              {item.label}
+              <span className="nav-item__icon"><AppIcon name={item.id} /></span>
+              <span className="nav-item__label">{item.label}</span>
             </button>
           ))}
         </nav>
 
-        <div className="sidebar-footer">
-          <span className="connection-dot" />
-          Reporting system online
+        <div className="sidebar-footer" title="Reporting system online">
+          <span className="connection-dot" aria-hidden="true" />
+          <span className="sidebar-status-label"><strong>Reporting system</strong><small>Online</small></span>
         </div>
       </aside>
 
@@ -1014,10 +1037,7 @@ export default function ReportingApp() {
           </div>
           <button className="user-chip" type="button" aria-label="Reporting team profile">
             <span className="user-chip__avatar">CM</span>
-            <span>
-              <strong>Reporting team</strong>
-              <small>Catchment 9</small>
-            </span>
+            <span><strong>Reporting team</strong><small>C9 &amp; Wood Buffalo</small></span>
           </button>
         </header>
 

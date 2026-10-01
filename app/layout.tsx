@@ -1,29 +1,18 @@
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
-
 export const metadata: Metadata = {
-  metadataBase: new URL('https://cm-catchment-9-reporting.rtandon58056.chatgpt.site'),
   title: 'CM Reporting',
   description:
-    'Daily operations and customer complaint reporting for Circular Materials Catchment 9.',
+    'Daily operations and customer complaint reporting for C9 and Wood Buffalo.',
   icons: {
-    icon: '/collective-waste-solutions.png',
+    icon: [{ url: '/collective-icon.png', type: 'image/png', sizes: '360x360' }],
+    apple: '/collective-icon.png',
   },
   openGraph: {
     title: 'CM Reporting',
     description:
-      'Daily operations and customer complaint reporting for Circular Materials Catchment 9.',
+      'Daily operations and customer complaint reporting for C9 and Wood Buffalo.',
     type: 'website',
     url: '/',
     siteName: 'CM Reporting',
@@ -37,7 +26,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className={`${geistSans.variable} ${geistMono.variable}`}>
+      <body>
         {children}
       </body>
     </html>

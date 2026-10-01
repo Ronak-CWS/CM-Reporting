@@ -13,6 +13,11 @@ vi.mock('../lib/local-storage', async (importOriginal) => ({
   getDatabase: () => runtime.storage!.database,
   getPhotoStorage: () => runtime.photos || runtime.storage!.photos,
 }));
+vi.mock('../lib/location-catalogue-store', async () => {
+  const { createLocationCatalogue } = await import('../lib/location-catalogue');
+  const catalogue = createLocationCatalogue((await import('./fixtures/service-locations.json')).default);
+  return { getLocationCatalogue: () => catalogue };
+});
 
 import { GET, POST, PATCH } from '../app/api/records/route';
 import { GET as getPhoto } from '../app/api/records/[id]/photos/[photoId]/route';
@@ -134,7 +139,29 @@ describe('durable blocked call reports', () => {
     expect((await POST(submission(id, {}, true, 2))).status).toBe(201);
   });
 
+  it('rejects unlisted locations and incomplete plates before storing any photos', async () => {
+    for (const patch of [
+      { registeredCommunity: 'Unlisted community' },
+      { siteAddress: 'Unlisted street' },
+      { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_vehicle' },
+      { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC123'] },
+      { reasonCode: 'other', otherReason: '  ' },
+    ]) {
+      const id = crypto.randomUUID();
+      expect((await POST(submission(id, patch))).status).toBe(400);
+      expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toBeNull();
+      expect(await photoFiles(id)).toHaveLength(0);
+    }
+  });
 
+  it('reloads and exports all vehicle plates', async () => {
+    const response = await POST(submission(crypto.randomUUID(), { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC123', 'XYZ789', 'THIRD1'] }));
+    expect(response.status).toBe(201);
+    const { record } = await response.json() as { record: ReportRecord };
+    const list = await (await GET()).json() as { records: ReportRecord[] };
+    expect(list.records.find((item) => item.id === record.id)?.blockage?.vehiclePlates).toBe('ABC123, XYZ789, THIRD1');
+    expect(await (await exportRecords(new Request('https://cm.test/api/export?type=daily'))).text()).toContain('"ABC123, XYZ789, THIRD1"');
+  });
 
   it('continues to save and export the original Exhibit 7 complaint fields', async () => {
     const response = await POST(new Request('https://cm.test/api/records', {

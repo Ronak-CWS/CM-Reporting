@@ -1,7 +1,8 @@
 import { findBlockedReason, blockageScopeLabel } from './blocked-call-options';
 import type { BlockageScope, CreateReportRecordInput } from './report-types';
 import { edmontonTimestamp } from './report-time';
-
+import { normalizedVehiclePlates, vehiclePlateError } from './vehicle-plates';
+import { getLocationCatalogue } from './location-catalogue-store';
 import { InputError } from './input-error';
 export { InputError } from './input-error';
 
@@ -30,22 +31,36 @@ export function parseBlockedCallInput(payload: unknown, now = new Date()): Creat
   if (!registeredCommunity) throw new InputError('Enter the registered community.');
   if (!siteAddress) throw new InputError(scope === 'street' ? 'Enter the blocked street.' : 'Enter the pickup location.');
   if (!employeeName) throw new InputError('Enter your name.');
+  const locationCatalogue = getLocationCatalogue();
+  if (!locationCatalogue.available) throw new InputError('The service address list is not available. Please contact the office.', 503);
+  const approvedLocation = locationCatalogue.resolve(scope, registeredCommunity, siteAddress);
+  if (!approvedLocation) throw new InputError('Choose a community and location from the service address list.');
   const reasonLabel = reason.code === 'other' ? otherReason : reason.label;
   const streetFrom = scope === 'street' ? text(body, 'streetFrom') : '';
   const streetTo = scope === 'street' ? text(body, 'streetTo') : '';
   const notes = text(body, 'notes', 1500);
-  const vehiclePlates = scope === 'pickup' && reason.requiresVehiclePlate ? text(body, 'vehiclePlates', 500) : '';
+  let vehiclePlates = '';
+  if (reason.requiresVehiclePlate) {
+    const value = body.vehiclePlates;
+    if (value !== undefined && typeof value !== 'string' && !(Array.isArray(value) && value.every((plate) => typeof plate === 'string'))) {
+      throw new InputError('Enter a valid vehicle plate list.');
+    }
+    const plates: string[] = Array.isArray(value) ? value : text(body, 'vehiclePlates', 500).split(/[,;\n]+/);
+    const plateError = vehiclePlateError(reason, plates);
+    if (plateError) throw new InputError(plateError);
+    vehiclePlates = normalizedVehiclePlates(plates).join(', ');
+  }
   const section = [streetFrom && `from ${streetFrom}`, streetTo && `to ${streetTo}`].filter(Boolean).join(' ');
   const issueDescription = [
-    `${blockageScopeLabel(scope)} blocked: ${siteAddress}${section ? ` (${section})` : ''}.`,
+    `${blockageScopeLabel(scope)} blocked: ${approvedLocation.siteAddress}${section ? ` (${section})` : ''}.`,
     `Reason: ${reasonLabel}.`,
     vehiclePlates && `Vehicle plates: ${vehiclePlates}.`,
     notes,
   ].filter(Boolean).join(' ');
 
   return {
-    recordType: 'daily', occurredAt: edmontonTimestamp(now), registeredCommunity,
-    siteAddress, routeNumber: text(body, 'routeNumber', 80), serviceType: text(body, 'serviceType', 80),
+    recordType: 'daily', occurredAt: edmontonTimestamp(now), ...approvedLocation,
+    routeNumber: text(body, 'routeNumber', 80), serviceType: text(body, 'serviceType', 80),
     category: 'Blocked call', priority: 'Normal', status: 'Open',
     employeeName, employeeTitle: '', contactMedium: '', customerName: '',
     customerAddress: '', customerContactInformation: '', issueDescription,

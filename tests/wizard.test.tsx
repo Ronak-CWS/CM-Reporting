@@ -3,29 +3,54 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BlockedCallWizard from '../app/components/BlockedCallWizard';
+import { createLocationCatalogue } from '../lib/location-catalogue';
+import locations from './fixtures/service-locations.json';
 
 vi.mock('next/image', () => ({ default: () => null }));
+const catalogue = createLocationCatalogue(locations);
+function locationResponse(url: string) {
+  const params = new URL(url, 'https://cm.test').searchParams;
+  return { ok: true, json: async () => catalogue.search(params.get('kind') as 'community' | 'street' | 'address', params.get('q') || '', params.get('community') || '') };
+}
 
 beforeEach(() => {
   window.localStorage.clear();
   vi.stubGlobal('scrollTo', vi.fn());
+  vi.stubGlobal('fetch', vi.fn(async (url: string) => locationResponse(url)));
   URL.createObjectURL = vi.fn(() => 'blob:photo-test');
   URL.revokeObjectURL = vi.fn();
 });
-afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
 async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /A pickup location/ : /A street \/ street block/ }));
   await user.type(screen.getByLabelText('Community'), 'Test community');
-  await user.type(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name'), '123 Test Street');
+  await user.click(await screen.findByRole('option', { name: 'Test community' }));
+  const address = scope === 'pickup' ? '123 Test Street' : 'Test Street';
+  await user.type(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name'), address);
+  await user.click(await screen.findByRole('option', { name: address }));
   await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /Blocked by car/ : /Flooded street/ }));
+  await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /Blocked by a vehicle/ : /Flooded street/ }));
+  if (scope === 'pickup') await user.type(screen.getByLabelText('Vehicle plate 1 (required)'), 'ABC123');
   await user.click(screen.getByRole('button', { name: /Continue/ }));
   return user;
 }
 
 describe('simple driver flow', () => {
+  it('opens the native camera from the entire empty photo area and attaches its photo', async () => {
+    vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Android');
+    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    const user = await reachPhotos('street');
+    const input = screen.getByLabelText('Take a blockage photo', { selector: 'input' });
+    const click = vi.spyOn(input, 'click').mockImplementation(() => {});
+    await user.click(screen.getByRole('button', { name: 'Open camera' }));
+    expect(click).toHaveBeenCalledTimes(1);
+    click.mockRestore();
+    await user.upload(input, new File(['test-image'], 'camera.jpg', { type: 'image/jpeg' }));
+    expect(screen.getByText('1 photo added')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Open camera' })).toBeNull();
+  });
   it('shows one task at a time and preserves location on Back', async () => {
     render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'What is blocked?' })).toBeTruthy();
@@ -33,7 +58,7 @@ describe('simple driver flow', () => {
     const user = await reachPhotos();
     expect((screen.getByRole('button', { name: /Continue/ }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: /Back/ }));
-    expect(screen.getByText('Blocked by car')).toBeTruthy();
+    expect(screen.getByText('Blocked by a vehicle')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /Back/ }));
     expect((screen.getByLabelText('Pickup address or site') as HTMLInputElement).value).toBe('123 Test Street');
     expect(screen.queryByLabelText('Status')).toBeNull();
@@ -42,7 +67,7 @@ describe('simple driver flow', () => {
   it('requires and removes photos for a street report', async () => {
     render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = await reachPhotos('street');
-    expect((screen.getByLabelText('Take a blockage photo') as HTMLInputElement).getAttribute('capture')).toBe('environment');
+    expect((screen.getByLabelText('Take a blockage photo', { selector: 'input' }) as HTMLInputElement).getAttribute('capture')).toBe('environment');
     await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
     expect(screen.getByText('1 photo added')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Remove photo 1' }));
@@ -55,7 +80,7 @@ describe('simple driver flow', () => {
     const fetchMock = vi.fn().mockRejectedValueOnce(new TypeError('Failed to fetch')).mockResolvedValueOnce({
       ok: true, json: async () => ({ record: { id: 'saved', referenceNumber: 'CM-DAY-TEST', siteAddress: '123 Test Street', registeredCommunity: 'Test community', photos: [{ id: 'photo' }] } }),
     });
-    vi.stubGlobal('fetch', fetchMock);
+    vi.stubGlobal('fetch', (url: string, options: unknown) => url.startsWith('/api/locations') ? Promise.resolve(locationResponse(url)) : fetchMock(url, options));
     render(<BlockedCallWizard onClose={vi.fn()} onSaved={onSaved} />);
     const user = await reachPhotos('street');
     await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
@@ -83,5 +108,46 @@ describe('simple driver flow', () => {
     expect(onClose).not.toHaveBeenCalled();
     await user.click(screen.getByRole('button', { name: 'Discard and close' }));
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it('requires a selected location and clears the address when the community changes', async () => {
+    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /A pickup location/ }));
+    await user.type(screen.getByLabelText('Community'), 'Test community');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('alert').textContent).toContain('Choose a community');
+    await user.click(screen.getByLabelText('Community'));
+    await user.click(await screen.findByRole('option', { name: 'Test community' }));
+    await user.type(screen.getByLabelText('Pickup address or site'), '123 Test Street');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('alert').textContent).toContain('Choose a pickup address');
+    await user.click(screen.getByLabelText('Pickup address or site'));
+    await user.click(await screen.findByRole('option', { name: '123 Test Street' }));
+    await user.clear(screen.getByLabelText('Community'));
+    expect(screen.getByLabelText('Pickup address or site')).toHaveProperty('value', '');
+    expect(screen.getByLabelText('Pickup address or site')).toHaveProperty('disabled', true);
+  });
+
+  it('requires two different plates for multiple vehicles and keeps additional plates on review', async () => {
+    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    const user = await reachPhotos();
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: /Blocked by multiple vehicles/ }));
+    const plate2 = screen.getByLabelText('Vehicle plate 2 (required)');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
+    await user.type(plate2, 'abc-123');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('alert').textContent).toContain('different plate');
+    await user.clear(plate2);
+    await user.type(plate2, 'XYZ789');
+    await user.click(screen.getByRole('button', { name: /Add another plate/ }));
+    await user.type(screen.getByLabelText('Vehicle plate 3 (optional)'), 'third1');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByText('Plates: ABC123, XYZ789, THIRD1')).toBeTruthy();
   });
 });

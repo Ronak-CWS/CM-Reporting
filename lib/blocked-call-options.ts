@@ -20,7 +20,7 @@ export const STREET_BLOCK_REASONS: BlockedReason[] = [
   { code: 'emergency_closure', label: 'Emergency closure', aliases: ['police', 'fire', 'emergency'] },
   { code: 'fallen_tree_or_debris', label: 'Fallen tree or debris', aliases: ['branches', 'tree', 'debris', 'obstruction'] },
   { code: 'road_damage', label: 'Road damage or washout', aliases: ['sinkhole', 'potholes', 'washout', 'road damage'] },
-  { code: 'vehicles_blocking_street', label: 'Vehicles blocking the street', aliases: ['parked', 'cars', 'trucks', 'vehicles'] },
+  { code: 'vehicles_blocking_street', label: 'Vehicles blocking the street', aliases: ['parked', 'cars', 'trucks', 'vehicles'], requiresVehiclePlate: true, allowsMultipleVehiclePlates: true },
   { code: 'event_closure', label: 'Event or parade closure', aliases: ['event', 'festival', 'parade'] },
 ];
 
@@ -29,7 +29,10 @@ export function reasonsForScope(scope: BlockageScope): BlockedReason[] {
 }
 
 export function findBlockedReason(scope: BlockageScope, code: string) {
-  return reasonsForScope(scope).find((reason) => reason.code === code);
+  // Accept older open forms, but save the consolidated reason for new reports.
+  const canonicalCode = scope === 'pickup' && ['blocked_by_car', 'blocked_by_truck', 'blocked_by_van'].includes(code)
+    ? 'blocked_by_vehicle' : code;
+  return reasonsForScope(scope).find((reason) => reason.code === canonicalCode);
 }
 
 export function searchBlockedReasons(scope: BlockageScope, query: string): BlockedReason[] {

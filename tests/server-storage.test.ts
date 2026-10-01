@@ -1,9 +1,10 @@
-import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createLocalStorage, privatePhotoPath } from '../lib/local-storage';
 import { dataDirectory } from '../lib/storage-config';
+import { getLocationCatalogue } from '../lib/location-catalogue-store';
 
 let directory: string;
 beforeAll(async () => { directory = await mkdtemp(path.join(tmpdir(), 'cm-server-test-')); });
@@ -48,4 +49,18 @@ describe('private server storage', () => {
     expect(dataDirectory()).toBe(path.resolve(directory));
   });
 
+  it('reloads approved catalogue replacements and fails closed on missing or invalid data', async () => {
+    const file = path.join(directory, 'catalogue.json');
+    vi.stubEnv('CM_LOCATION_CATALOGUE_PATH', file);
+    const row = { community: 'Test community', address: '1 First Road', street: 'First Road' };
+    await writeFile(file, JSON.stringify([row]));
+    expect(getLocationCatalogue().resolve('pickup', row.community, row.address)).not.toBeNull();
+    await writeFile(file, JSON.stringify([{ ...row, address: '222 Second Road', street: 'Second Road' }]));
+    expect(getLocationCatalogue().resolve('pickup', row.community, row.address)).toBeNull();
+    expect(getLocationCatalogue().search('address', '222', row.community).options).toEqual(['222 Second Road']);
+    await writeFile(file, '{invalid');
+    expect(getLocationCatalogue().available).toBe(false);
+    await rm(file);
+    expect(getLocationCatalogue().available).toBe(false);
+  });
 });

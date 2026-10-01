@@ -1187,6 +1187,8 @@ h2 {
   font-size: 0.76rem;
 }
 
+.date-range input[aria-invalid="true"] { border-color: #c25045; }
+.export-card p.date-range-error { grid-column: 1 / -1; margin: -6px 0 0; color: #a13930; font-size: .8rem; }
 
 .export-card__footer {
   grid-column: 1 / -1;
@@ -1214,6 +1216,7 @@ h2 {
   text-decoration: none;
 }
 
+.export-card__footer .button:disabled { cursor: not-allowed; }
 
 .delivery-panel {
   display: flex;

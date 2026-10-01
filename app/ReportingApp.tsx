@@ -4,6 +4,7 @@ import Image from 'next/image';
 import BlockedCallWizard from './components/BlockedCallWizard';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
+import { exportDateRangeError } from '../lib/export-date-range';
 import { blockageScopeLabel } from '../lib/blocked-call-options';
 import {
   type FormEvent,
@@ -522,6 +523,8 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
   const [dailyTo, setDailyTo] = useState(today);
   const [complaintFrom, setComplaintFrom] = useState(monthStartDateKey());
   const [complaintTo, setComplaintTo] = useState(today);
+  const dailyError = exportDateRangeError(dailyFrom, dailyTo, true);
+  const complaintError = exportDateRangeError(complaintFrom, complaintTo, true);
 
   const dailyCount = records.filter((record) => {
     const date = record.occurredAt.slice(0, 10);
@@ -559,16 +562,17 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
           <div className="date-range">
             <label>
               <span>From</span>
-              <input type="date" value={dailyFrom} onChange={(event) => setDailyFrom(event.target.value)} />
+              <input type="date" value={dailyFrom} max={dailyTo || undefined} required aria-invalid={Boolean(dailyError)} aria-describedby={dailyError ? 'daily-date-error' : undefined} onChange={(event) => setDailyFrom(event.target.value)} />
             </label>
             <label>
               <span>To</span>
-              <input type="date" value={dailyTo} onChange={(event) => setDailyTo(event.target.value)} />
+              <input type="date" value={dailyTo} min={dailyFrom || undefined} required aria-invalid={Boolean(dailyError)} aria-describedby={dailyError ? 'daily-date-error' : undefined} onChange={(event) => setDailyTo(event.target.value)} />
             </label>
           </div>
+          {dailyError ? <p id="daily-date-error" className="date-range-error" role="alert">{dailyError}</p> : null}
           <div className="export-card__footer">
-            <span><strong>{dailyCount}</strong> records selected</span>
-            <a className="button button--primary" href={dailyUrl}>Download CSV</a>
+            <span>{dailyError ? 'Choose a valid date range' : <><strong>{dailyCount}</strong> records selected</>}</span>
+            {dailyError ? <button className="button button--primary" type="button" disabled>Download CSV</button> : <a className="button button--primary" href={dailyUrl}>Download CSV</a>}
           </div>
         </article>
 
@@ -582,16 +586,17 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
           <div className="date-range">
             <label>
               <span>From</span>
-              <input type="date" value={complaintFrom} onChange={(event) => setComplaintFrom(event.target.value)} />
+              <input type="date" value={complaintFrom} max={complaintTo || undefined} required aria-invalid={Boolean(complaintError)} aria-describedby={complaintError ? 'complaint-date-error' : undefined} onChange={(event) => setComplaintFrom(event.target.value)} />
             </label>
             <label>
               <span>To</span>
-              <input type="date" value={complaintTo} onChange={(event) => setComplaintTo(event.target.value)} />
+              <input type="date" value={complaintTo} min={complaintFrom || undefined} required aria-invalid={Boolean(complaintError)} aria-describedby={complaintError ? 'complaint-date-error' : undefined} onChange={(event) => setComplaintTo(event.target.value)} />
             </label>
           </div>
+          {complaintError ? <p id="complaint-date-error" className="date-range-error" role="alert">{complaintError}</p> : null}
           <div className="export-card__footer">
-            <span><strong>{complaintCount}</strong> complaints selected</span>
-            <a className="button button--primary" href={complaintUrl}>Download CSV</a>
+            <span>{complaintError ? 'Choose a valid date range' : <><strong>{complaintCount}</strong> complaints selected</>}</span>
+            {complaintError ? <button className="button button--primary" type="button" disabled>Download CSV</button> : <a className="button button--primary" href={complaintUrl}>Download CSV</a>}
           </div>
         </article>
       </section>

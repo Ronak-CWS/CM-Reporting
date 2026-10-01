@@ -1,5 +1,6 @@
 import { listReportRecords } from '../../../lib/reporting-store';
 import type { ReportRecord } from '../../../lib/report-types';
+import { exportDateRangeError } from '../../../lib/export-date-range';
 
 export const dynamic = 'force-dynamic';
 
@@ -118,6 +119,8 @@ export async function GET(request: Request) {
   const exportType = url.searchParams.get('type') === 'complaints' ? 'complaints' : 'daily';
   const from = url.searchParams.get('from') ?? '';
   const to = url.searchParams.get('to') ?? '';
+  const rangeError = exportDateRangeError(from, to);
+  if (rangeError) return Response.json({ error: rangeError }, { status: 400, headers: { 'Cache-Control': 'private, no-store' } });
   const records = (await listReportRecords()).filter((record) => withinRange(record, from, to));
   const filteredRecords = exportType === 'complaints'
     ? records.filter((record) => record.recordType === 'complaint')

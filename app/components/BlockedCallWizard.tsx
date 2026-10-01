@@ -1,6 +1,8 @@
 'use client';
 
 import Image from 'next/image';
+import { appPath } from '../../lib/app-path.js';
+import { reportingFetch } from '../../lib/reporting-fetch';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { blockageScopeLabel, findBlockedReason, searchBlockedReasons } from '../../lib/blocked-call-options';
 import { MAX_PHOTOS, PHOTO_ACCEPT, photoSelectionError } from '../../lib/photo-validation';
@@ -148,7 +150,7 @@ export default function BlockedCallWizard({
     setSaving(true);
     setError('');
     try {
-      const response = await fetch('/api/records', { method: 'POST', body: form });
+      const response = await reportingFetch(appPath('/api/records'), { method: 'POST', body: form });
       const result = await response.json().catch(() => ({})) as { record?: ReportRecord; error?: string };
       if (!response.ok || !result.record) throw new Error(result.error || 'Your report could not be saved. Please try again.');
       try { window.localStorage.setItem(DRIVER_PREFERENCE, employeeName.trim()); } catch { /* Optional device preference. */ }
@@ -182,7 +184,7 @@ export default function BlockedCallWizard({
   return (
     <main className="driver-page">
       <header className="driver-header">
-        <Image src={'/collective-waste-solutions.png'} alt="Collective Waste Solutions" width={180} height={45} priority />
+        <Image src={appPath('/collective-waste-solutions.png')} alt="Collective Waste Solutions" width={180} height={45} priority />
         <button className="driver-exit" type="button" onClick={requestClose} disabled={saving}>Close</button>
       </header>
 

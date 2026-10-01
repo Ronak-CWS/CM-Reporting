@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { accessResponse } from '../../../lib/request-access';
 import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-input';
 import { validatePhotos } from '../../../lib/photo-validation';
 import { readReportBody } from '../../../lib/request-body';
@@ -133,7 +134,9 @@ function errorResponse(error: unknown, status = 500) {
   return NextResponse.json({ error: message }, { status });
 }
 
-export async function GET() {
+export async function GET(request: Request) {
+  const denied = accessResponse(request);
+  if (denied) return denied;
   try {
     const records = await listReportRecords();
     return NextResponse.json({ records });
@@ -143,6 +146,8 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const denied = accessResponse(request);
+  if (denied) return denied;
   try {
     const { payload, files, submissionId } = await readReportBody(request);
     if (payload?.recordType === 'daily') {
@@ -168,6 +173,8 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const denied = accessResponse(request);
+  if (denied) return denied;
   try {
     const input = parseUpdateInput(await request.json());
     const record = await updateReportRecord(input);

@@ -73,7 +73,7 @@ describe('durable blocked call reports', () => {
     runtime.storage!.close();
     runtime.storage = createLocalStorage(directory);
     database = runtime.storage.database;
-    const list = await (await GET()).json() as { records: ReportRecord[] };
+    const list = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };
     expect(list.records.find((item) => item.id === record.id)?.photos).toEqual(record.photos);
     const photo = record.photos[0];
     const context = { params: Promise.resolve({ id: record.id, photoId: photo.id }) };
@@ -158,7 +158,7 @@ describe('durable blocked call reports', () => {
     const response = await POST(submission(crypto.randomUUID(), { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC123', 'XYZ789', 'THIRD1'] }));
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
-    const list = await (await GET()).json() as { records: ReportRecord[] };
+    const list = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };
     expect(list.records.find((item) => item.id === record.id)?.blockage?.vehiclePlates).toBe('ABC123, XYZ789, THIRD1');
     expect(await (await exportRecords(new Request('https://cm.test/api/export?type=daily'))).text()).toContain('"ABC123, XYZ789, THIRD1"');
   });
@@ -192,7 +192,7 @@ describe('durable blocked call reports', () => {
     const restored = createLocalStorage(destination);
     try {
       runtime.storage = restored;
-      const { records } = await (await GET()).json() as { records: ReportRecord[] };
+      const { records } = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };
       expect(records).toHaveLength(manifest.reports);
       for (const record of records) for (const photo of record.photos) {
         const response = await getPhoto(new Request(`https://cm.test${photo.url}`), { params: Promise.resolve({ id: record.id, photoId: photo.id }) });

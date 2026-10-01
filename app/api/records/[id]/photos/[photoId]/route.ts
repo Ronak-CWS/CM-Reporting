@@ -1,8 +1,11 @@
 import { readReportPhoto } from '../../../../../../lib/reporting-store';
+import { accessResponse } from '../../../../../../lib/request-access';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request, context: { params: Promise<{ id: string; photoId: string }> }) {
+  const denied = accessResponse(request);
+  if (denied) return denied;
   const { id, photoId } = await context.params;
   try {
     const result = await readReportPhoto(id, photoId);

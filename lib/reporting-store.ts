@@ -1,4 +1,5 @@
 import { getDatabase, getPhotoStorage, type StorageDatabase } from './local-storage';
+import { appPath } from './app-path.js';
 import { InputError } from './input-error';
 import { EVIDENCE_SCHEMA_SQL } from './evidence-schema';
 import type { ValidatedPhoto } from './photo-validation';
@@ -117,7 +118,7 @@ function mapPhoto(row: DatabaseRow): ReportPhoto {
   return {
     id: asText(row.id), fileName: asText(row.file_name),
     contentType: asText(row.content_type), size: Number(row.size),
-    url: `/api/records/${row.record_id}/photos/${row.id}`,
+    url: appPath(`/api/records/${row.record_id}/photos/${row.id}`),
   };
 }
 
@@ -283,7 +284,7 @@ export async function createReportRecord(input: CreateReportRecordInput, photos:
       attemptedKeys.push(storageKey);
       await photoStorage.put(storageKey, photo.bytes, { httpMetadata: { contentType: photo.contentType } });
       storedPhotos.push({ id: photoId, fileName: photo.fileName, contentType: photo.contentType,
-        size: photo.bytes.byteLength, url: `/api/records/${id}/photos/${photoId}`, storageKey });
+        size: photo.bytes.byteLength, url: appPath(`/api/records/${id}/photos/${photoId}`), storageKey });
       statements.push(database.prepare(
         'INSERT INTO report_photos (id, record_id, storage_key, file_name, content_type, size, position) VALUES (?, ?, ?, ?, ?, ?, ?)',
       ).bind(photoId, id, storageKey, photo.fileName, photo.contentType, photo.bytes.byteLength, position));

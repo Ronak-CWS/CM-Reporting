@@ -1,0 +1,60 @@
+// @vitest-environment jsdom
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import Login from '../app/login/page';
+import SessionNotice from '../app/components/SessionNotice';
+import { reportingFetch } from '../lib/reporting-fetch';
+
+vi.mock('next/headers', () => ({ headers: async () => new Headers() }));
+vi.mock('next/navigation', () => ({ redirect: vi.fn() }));
+vi.mock('../lib/request-access', () => ({ signedInUser: () => null }));
+vi.mock('next/image', () => ({ default: (props: { src: string; alt: string }) => <span role="img" aria-label={props.alt} data-src={props.src} /> }));
+
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+beforeEach(() => {
+  vi.stubEnv('CM_AUTH_MODE', 'microsoft');
+  vi.stubEnv('NEXT_PUBLIC_BASE_PATH', '/cm-reporting');
+  vi.stubEnv('CM_PUBLIC_ORIGIN', 'https://cm.test');
+  vi.stubEnv('CM_ENTRA_TENANT_ID', '11111111-2222-3333-4444-555555555555');
+  vi.stubEnv('CM_ENTRA_CLIENT_ID', 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee');
+  vi.stubEnv('CM_ENTRA_CLIENT_SECRET', 'test-only-secret-never-a-real-credential');
+});
+
+describe('Microsoft sign-in screen', () => {
+  it('keeps sign-in and branding under the deployed application path', async () => {
+    render(await Login({ searchParams: Promise.resolve({}) }));
+    expect(screen.getByRole('link', { name: 'Sign in with Microsoft' }).getAttribute('href')).toBe('/cm-reporting/api/auth/microsoft/start');
+    expect(screen.getByRole('img').getAttribute('data-src')).toBe('/cm-reporting/collective-waste-solutions.png');
+    expect(screen.queryByRole('textbox')).toBeNull();
+  });
+  it('explains missing setup without exposing credentials or reflecting arbitrary errors', async () => {
+    vi.stubEnv('CM_ENTRA_CLIENT_SECRET', '');
+    render(await Login({ searchParams: Promise.resolve({ error: '__proto__' }) }));
+    expect(screen.getByRole('status').textContent).toContain('being set up');
+    expect(screen.queryByRole('link')).toBeNull();
+    expect(document.body.textContent).not.toContain('__proto__');
+  });
+  it('shows an access error and a retry link', async () => {
+    render(await Login({ searchParams: Promise.resolve({ error: 'access' }) }));
+    expect(screen.getByRole('alert').textContent).toContain('does not have access');
+    expect(screen.getByRole('link', { name: 'Sign in with Microsoft' })).toBeDefined();
+  });
+});
+
+it('preserves an unsaved form on expiry and verifies reauthentication before hiding the notice', async () => {
+  const fetchMock = vi.fn().mockResolvedValue(new Response('{}', { status: 401 }));
+  vi.stubGlobal('fetch', fetchMock);
+  render(<><input aria-label="Unsaved report" defaultValue="Driver draft" /><SessionNotice /></>);
+  await act(async () => { await reportingFetch('/cm-reporting/api/records', { method: 'POST' }); });
+  const link = screen.getByRole('link', { name: 'Sign in again (new tab)' });
+  expect(link.getAttribute('target')).toBe('_blank');
+  expect(link.getAttribute('href')).toBe('/cm-reporting/login');
+  fireEvent.click(screen.getByRole('button', { name: 'Check sign-in' }));
+  await screen.findByText('Please finish signing in, then check again.');
+  expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Driver draft');
+  fetchMock.mockResolvedValue(new Response('{}', { status: 200 }));
+  fireEvent.click(screen.getByRole('button', { name: 'Check sign-in' }));
+  await waitFor(() => expect(screen.queryByRole('alert')).toBeNull());
+  expect(fetchMock).toHaveBeenLastCalledWith('/cm-reporting/api/auth/session', { cache: 'no-store' });
+  expect((screen.getByRole('textbox') as HTMLInputElement).value).toBe('Driver draft');
+});

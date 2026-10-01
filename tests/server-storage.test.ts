@@ -5,6 +5,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest
 import { createLocalStorage, privatePhotoPath } from '../lib/local-storage';
 import { dataDirectory } from '../lib/storage-config';
 import { getLocationCatalogue } from '../lib/location-catalogue-store';
+import { accessFailure } from '../lib/request-access';
 
 let directory: string;
 beforeAll(async () => { directory = await mkdtemp(path.join(tmpdir(), 'cm-server-test-')); });
@@ -62,5 +63,34 @@ describe('private server storage', () => {
     expect(getLocationCatalogue().available).toBe(false);
     await rm(file);
     expect(getLocationCatalogue().available).toBe(false);
+  });
+});
+
+describe('production request access', () => {
+  const secret = 'unit-test-proxy-secret-with-at-least-32-characters';
+  function configure() {
+    vi.stubEnv('CM_AUTH_MODE', 'proxy');
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('CM_TRUSTED_PROXY_KEY', secret);
+    vi.stubEnv('CM_PUBLIC_ORIGIN', 'https://cm.test');
+  }
+  function request(method = 'GET', headers: Record<string, string> = {}) {
+    return new Request('https://cm.test/api/records/id/photos/photo-id', { method, headers: { 'x-cm-proxy-key': secret, 'x-cm-user': 'test-employee', ...headers } });
+  }
+  it('protects reports and photos when proxy configuration or identity is absent', () => {
+    configure();
+    expect(accessFailure(request())).toBeNull();
+    expect(accessFailure(request('GET', { 'x-cm-user': '' }))?.status).toBe(401);
+    expect(accessFailure(request('GET', { 'x-cm-proxy-key': 'forged' }))?.status).toBe(401);
+    vi.stubEnv('CM_TRUSTED_PROXY_KEY', '');
+    expect(accessFailure(request())?.status).toBe(503);
+  });
+  it('requires the configured HTTPS origin on mutations', () => {
+    configure();
+    expect(accessFailure(request('POST', { origin: 'https://cm.test' }))).toBeNull();
+    expect(accessFailure(request('PATCH', { origin: 'https://attacker.invalid' }))?.status).toBe(403);
+    expect(accessFailure(request('POST'))?.status).toBe(403);
+    vi.stubEnv('CM_PUBLIC_ORIGIN', 'http://cm.test');
+    expect(accessFailure(request())?.status).toBe(503);
   });
 });

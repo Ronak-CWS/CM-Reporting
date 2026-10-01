@@ -1,4 +1,5 @@
 import { listReportRecords } from '../../../lib/reporting-store';
+import { accessResponse } from '../../../lib/request-access';
 import type { ReportRecord } from '../../../lib/report-types';
 import { exportDateRangeError } from '../../../lib/export-date-range';
 
@@ -115,6 +116,8 @@ function dailySummaryCsv(records: ReportRecord[]) {
 }
 
 export async function GET(request: Request) {
+  const denied = accessResponse(request);
+  if (denied) return denied;
   const url = new URL(request.url);
   const exportType = url.searchParams.get('type') === 'complaints' ? 'complaints' : 'daily';
   const from = url.searchParams.get('from') ?? '';

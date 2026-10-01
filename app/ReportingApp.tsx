@@ -1,6 +1,9 @@
 'use client';
 
 import Image from 'next/image';
+import { appPath } from '../lib/app-path.js';
+import { reportingFetch } from '../lib/reporting-fetch';
+import type { SignedInUser } from '../lib/auth-store';
 import BlockedCallWizard from './components/BlockedCallWizard';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
@@ -535,8 +538,8 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
     return record.recordType === 'complaint' && date >= complaintFrom && date <= complaintTo;
   }).length;
 
-  const dailyUrl = `/api/export?type=daily&from=${encodeURIComponent(dailyFrom)}&to=${encodeURIComponent(dailyTo)}`;
-  const complaintUrl = `/api/export?type=complaints&from=${encodeURIComponent(complaintFrom)}&to=${encodeURIComponent(complaintTo)}`;
+  const dailyUrl = appPath(`/api/export?type=daily&from=${encodeURIComponent(dailyFrom)}&to=${encodeURIComponent(dailyTo)}`);
+  const complaintUrl = appPath(`/api/export?type=complaints&from=${encodeURIComponent(complaintFrom)}&to=${encodeURIComponent(complaintTo)}`);
 
   return (
     <>
@@ -681,7 +684,7 @@ function ComplaintFormModal({
       resolvedAt: value('resolvedAt'), assignedTo: value('assignedTo'), blockage: null,
     };
     try {
-      const response = await fetch('/api/records', {
+      const response = await reportingFetch(appPath('/api/records'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
       });
       const result = await readApiResponse<{ record: ReportRecord }>(response);
@@ -799,7 +802,7 @@ function RecordDetails({
     };
 
     try {
-      const response = await fetch('/api/records', {
+      const response = await reportingFetch(appPath('/api/records'), {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
@@ -924,7 +927,7 @@ function RecordDetails({
   );
 }
 
-export default function ReportingApp() {
+export default function ReportingApp({ user = null }: { user?: SignedInUser | null }) {
   const [view, setView] = useState<View>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<ReportRecord[]>([]);
@@ -940,7 +943,7 @@ export default function ReportingApp() {
     setLoading(true);
     setLoadError('');
     try {
-      const response = await fetch('/api/records', { cache: 'no-store' });
+      const response = await reportingFetch(appPath('/api/records'), { cache: 'no-store' });
       const result = await readApiResponse<{ records: ReportRecord[] }>(response);
       setRecords(result.records);
     } catch (error) {
@@ -1005,9 +1008,9 @@ export default function ReportingApp() {
           </button>
         </div>
         <div className="sidebar-logos" aria-label="Reporting partners">
-          <Image className="brand-logo" src={'/collective-waste-solutions.png'} alt="Collective Waste Solutions" width={172} height={43} priority />
+          <Image className="brand-logo" src={appPath('/collective-waste-solutions.png')} alt="Collective Waste Solutions" width={172} height={43} priority />
           <span className="sidebar-logo-divider" aria-hidden="true" />
-          <Image className="partner-logo" src={'/Circular Materials Logo - Colour (1).png'} alt="Circular Materials" width={144} height={79} priority />
+          <Image className="partner-logo" src={appPath('/Circular Materials Logo - Colour (1).png')} alt="Circular Materials" width={144} height={79} priority />
         </div>
         <p className="sidebar-scope">C9 &amp; Wood Buffalo</p>
 
@@ -1040,10 +1043,13 @@ export default function ReportingApp() {
             <p className="eyebrow">{viewLabel}</p>
             <p className="today-label">{formatTodayHeading()}</p>
           </div>
-          <button className="user-chip" type="button" aria-label="Reporting team profile">
-            <span className="user-chip__avatar">CM</span>
-            <span><strong>Reporting team</strong><small>C9 &amp; Wood Buffalo</small></span>
-          </button>
+          <div className="account-controls">
+            <div className="user-chip" aria-label={user ? `Signed in as ${user.name}` : 'Reporting team'}>
+              <span className="user-chip__avatar">{user ? user.name.split(/\s+/).map((part) => part[0]).slice(0, 2).join('').toUpperCase() : 'CM'}</span>
+              <span><strong>{user?.name || 'Reporting team'}</strong><small>{user?.username || 'C9 & Wood Buffalo'}</small></span>
+            </div>
+            {user ? <form action={appPath('/api/auth/logout')} method="post"><button className="text-button" type="submit">Sign out</button></form> : null}
+          </div>
         </header>
 
         <div className="content">

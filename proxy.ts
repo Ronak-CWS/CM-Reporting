@@ -1,0 +1,34 @@
+import { NextResponse, type NextRequest } from 'next/server';
+import { accessFailure } from './lib/request-access';
+import { appPath, basePath } from './lib/app-path.js';
+
+const publicPaths = new Set([
+  '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/logout',
+  '/collective-waste-solutions.png', '/collective-icon.png', '/Circular Materials Logo - Colour (1).png',
+]);
+
+export function proxy(request: NextRequest) {
+  const prefix = basePath();
+  const incoming = request.nextUrl.pathname;
+  const pathname = (prefix && incoming.startsWith(`${prefix}/`) ? incoming.slice(prefix.length) : incoming).replace(/\/$/, '') || '/';
+  let publicPath = pathname;
+  try { publicPath = decodeURIComponent(pathname); } catch { /* Malformed escapes are not a public path. */ }
+  const failure = publicPaths.has(publicPath) ? null : accessFailure(request);
+  if (failure) {
+    if ([401, 503].includes(failure.status) && !pathname.startsWith('/api/') && ['GET', 'HEAD'].includes(request.method)) {
+      // A relative Location stays on the current site even when startup configuration is missing.
+      const response = new NextResponse(null, { status: 303, headers: { Location: appPath('/login') } });
+      response.headers.set('Cache-Control', 'private, no-store');
+      return response;
+    }
+    return NextResponse.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } });
+  }
+  const response = NextResponse.next();
+  response.headers.set('Cache-Control', 'private, no-store');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('Referrer-Policy', 'no-referrer');
+  response.headers.set('X-Frame-Options', 'DENY');
+  return response;
+}
+
+export const config = { matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'] };

@@ -250,6 +250,28 @@ a:focus-visible {
 
 .user-chip:hover { border-color: #a3ccd2; background: var(--teal-100); }
 
+.account-controls { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.account-controls .user-chip { cursor: default; max-width: 270px; }
+.account-controls .user-chip > span:last-child { min-width: 0; }
+.account-controls .user-chip :is(strong, small) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.account-controls form { flex-shrink: 0; }
+
+.login-shell { min-height: 100dvh; display: grid; place-items: center; padding: 24px; background: var(--slate-100); }
+.login-card { width: min(100%, 460px); padding: clamp(24px, 6vw, 44px); border: 1px solid var(--slate-200); border-radius: 24px; background: var(--paper); box-shadow: 0 20px 60px #15334312; }
+.login-card > img { object-fit: contain; object-position: left; margin-bottom: 36px; max-width: 100%; height: auto; }
+.login-card h1 { margin: 10px 0 16px; color: var(--navy-900); font-size: 2rem; letter-spacing: -0.04em; }
+.login-intro { color: var(--slate-500); line-height: 1.65; margin: 0 0 28px; }
+.microsoft-signin { display: flex; align-items: center; justify-content: center; gap: 12px; min-height: 48px; padding: 12px; border: 1px solid var(--slate-300); border-radius: 8px; color: var(--navy-900); font-weight: 650; background: white; text-decoration: none; }
+.microsoft-signin:hover { background: var(--slate-100); border-color: var(--teal-700); }
+.microsoft-signin:focus-visible { outline: 3px solid var(--teal-700); outline-offset: 4px; }
+.microsoft-signin svg { flex-shrink: 0; }
+.login-footnote { font-size: 0.78rem; color: var(--slate-500); text-align: center; line-height: 1.5; margin: 24px 0 0; }
+.login-message { padding: 14px; margin: 0 0 22px; border-radius: 8px; line-height: 1.55; background: var(--slate-100); color: var(--navy-900); }
+.login-message--error { background: #fff1f0; color: #8b2525; }
+.session-notice { position: fixed; z-index: 1000; bottom: 16px; left: 50%; transform: translateX(-50%); width: min(540px, calc(100% - 32px)); padding: 18px; border: 1px solid var(--teal-700); border-radius: 12px; background: var(--paper); box-shadow: var(--shadow-md); }
+.session-notice p { margin: 0 0 12px; line-height: 1.5; }
+.session-notice > div { display: flex; gap: 20px; flex-wrap: wrap; }
+
 .user-chip__avatar {
   display: grid;
   place-items: center;

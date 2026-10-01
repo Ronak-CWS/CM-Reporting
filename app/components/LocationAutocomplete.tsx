@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { appPath } from '../../lib/app-path.js';
+import { reportingFetch } from '../../lib/reporting-fetch';
 import type { LocationKind, LocationSuggestions } from '../../lib/location-catalogue';
 
 interface Props {
@@ -33,7 +35,7 @@ export default function LocationAutocomplete({ id, label, kind, value, selected,
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       try {
-        const response = await fetch(`/api/locations?${search}`, { signal: controller.signal, cache: 'no-store' });
+        const response = await reportingFetch(appPath(`/api/locations?${search}`), { signal: controller.signal, cache: 'no-store' });
         const payload = await response.json() as LocationSuggestions & { error?: string };
         if (!response.ok) throw new Error(payload.error || 'The location list could not be loaded. Try again.');
         if (!cancelled) setResult({ search, options: payload.options, hasMore: payload.hasMore, error: '' });

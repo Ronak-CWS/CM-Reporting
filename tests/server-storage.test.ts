@@ -1,6 +1,9 @@
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { fileURLToPath } from 'node:url';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createLocalStorage, privatePhotoPath } from '../lib/local-storage';
 import { dataDirectory } from '../lib/storage-config';
@@ -13,6 +16,14 @@ afterAll(async () => { if (directory) await rm(directory, { recursive: true, for
 afterEach(() => { vi.unstubAllEnvs(); });
 
 describe('private server storage', () => {
+  it('runs the real startup configuration check without starting a server', async () => {
+    const result = await promisify(execFile)(process.execPath, ['scripts/check-server.mjs'], {
+      env: { ...process.env, NODE_ENV: 'production', CM_AUTH_MODE: 'proxy', CM_DATA_DIR: path.join(directory, 'startup'),
+        CM_LOCATION_CATALOGUE_PATH: fileURLToPath(new URL('./fixtures/service-locations.json', import.meta.url)),
+        CM_PUBLIC_ORIGIN: 'https://cm.test', CM_TRUSTED_PROXY_KEY: 'unit-test-key-only-at-least-32-characters' },
+    });
+    expect(result.stdout).toContain('Server configuration checked.');
+  });
   it('rolls back the entire metadata transaction on a failed statement', async () => {
     const storage = createLocalStorage(path.join(directory, 'transaction'));
     try {

@@ -520,7 +520,7 @@ function RegisterView({
   );
 }
 
-function ExportsView({ records }: { records: ReportRecord[] }) {
+function ExportsView({ records, notificationsEnabled }: { records: ReportRecord[]; notificationsEnabled: boolean }) {
   const today = edmontonDateKey();
   const [dailyFrom, setDailyFrom] = useState(today);
   const [dailyTo, setDailyTo] = useState(today);
@@ -606,14 +606,15 @@ function ExportsView({ records }: { records: ReportRecord[] }) {
 
       <section className="panel delivery-panel">
         <div>
-          <p className="eyebrow">Scheduled email handoff</p>
-          <h2>Daily release at 5:00 PM Mountain Time</h2>
+          <p className="eyebrow">Report notifications</p>
+          <h2>Email updates after submission</h2>
           <p>
-            The report is ready for manual download now. Connect the production email
-            service and dedicated CM recipient list before enabling automatic release.
+            {notificationsEnabled
+              ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download CSV exports above when needed.'
+              : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and CSV exports are available above.'}
           </p>
         </div>
-        <span className="connection-badge">Connection required</span>
+        <span className="connection-badge">{notificationsEnabled ? 'Notifications enabled' : 'Notifications not enabled'}</span>
       </section>
     </>
   );
@@ -927,7 +928,7 @@ function RecordDetails({
   );
 }
 
-export default function ReportingApp({ user = null }: { user?: SignedInUser | null }) {
+export default function ReportingApp({ user = null, notificationsEnabled = false }: { user?: SignedInUser | null; notificationsEnabled?: boolean }) {
   const [view, setView] = useState<View>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<ReportRecord[]>([]);
@@ -1093,7 +1094,7 @@ export default function ReportingApp({ user = null }: { user?: SignedInUser | nu
               onOpenRecord={(record) => setSelectedRecordId(record.id)}
             />
           ) : null}
-          {view === 'exports' ? <ExportsView records={records} /> : null}
+          {view === 'exports' ? <ExportsView records={records} notificationsEnabled={notificationsEnabled} /> : null}
         </div>
       </section>
 

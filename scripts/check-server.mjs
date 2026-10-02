@@ -5,6 +5,7 @@ import nextEnv from '@next/env';
 import { dataDirectory, cataloguePath } from '../lib/storage-config.ts';
 import { createLocationCatalogue } from '../lib/location-catalogue.ts';
 import { validateAuthenticationConfig } from '../lib/auth-config.ts';
+import { validateReportEmailConfig } from '../lib/smtp-config.js';
 
 // The service preflight runs before Next sets NODE_ENV and reads its environment files.
 process.env.NODE_ENV = 'production';
@@ -12,6 +13,7 @@ nextEnv.loadEnvConfig(process.cwd(), false);
 try {
   const directory = dataDirectory();
   validateAuthenticationConfig();
+  validateReportEmailConfig();
   const rows = JSON.parse(await readFile(cataloguePath(), 'utf8'));
   if (!Array.isArray(rows) || !createLocationCatalogue(rows).available) throw new Error('Install the approved service-location catalogue before starting.');
   await mkdir(directory, { recursive: true });

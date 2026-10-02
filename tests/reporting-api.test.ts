@@ -47,6 +47,9 @@ function submission(id = crypto.randomUUID(), patch = {}, includePhoto = true, c
 }
 
 beforeAll(async () => {
+  vi.stubEnv('REPORT_EMAIL_ENABLED', 'true');
+  vi.stubEnv('REPORT_EMAIL_TO', 'office@example.invalid');
+  vi.stubEnv('CM_PUBLIC_ORIGIN', 'https://cm.test');
   testRoot = await mkdtemp(path.join(tmpdir(), 'cm-reporting-api-test-'));
   directory = path.join(testRoot, 'live');
   runtime.storage = createLocalStorage(directory);
@@ -60,15 +63,28 @@ beforeAll(async () => {
     }
   }
 }, 30000);
-afterAll(async () => { runtime.storage?.close(); if (testRoot) await rm(testRoot, { recursive: true, force: true }); });
+afterAll(async () => { runtime.storage?.close(); vi.unstubAllEnvs(); if (testRoot) await rm(testRoot, { recursive: true, force: true }); });
 
 describe('durable blocked call reports', () => {
+  it('saves reports without queuing emails when notifications are disabled', async () => {
+    vi.stubEnv('REPORT_EMAIL_ENABLED', 'false');
+    const id = crypto.randomUUID();
+    try {
+      expect((await POST(submission(id))).status).toBe(201);
+      expect(await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(id).first()).toBeNull();
+      expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toHaveProperty('id', id);
+    } finally { vi.stubEnv('REPORT_EMAIL_ENABLED', 'true'); }
+  });
+
   it('saves the street report, reloads evidence, and serves/downloads the original image', async () => {
     const response = await POST(submission());
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
     expect(record.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Flooded street', streetFrom: 'First Avenue' });
     expect(record.photos).toHaveLength(1);
+    const queued = await database.prepare('SELECT * FROM report_email_outbox WHERE report_id = ?').bind(record.id).first();
+    expect(queued).toMatchObject({ recipient: 'office@example.invalid', sent_at: null, attempts: 0 });
+    expect(queued).toHaveProperty('body', expect.stringContaining(record.referenceNumber));
     // Reopen the on-disk database and folder, as after an application restart.
     runtime.storage!.close();
     runtime.storage = createLocalStorage(directory);
@@ -93,6 +109,7 @@ describe('durable blocked call reports', () => {
     const result = await updated.json() as { record: ReportRecord };
     expect(result.record.status).toBe('Resolved');
     expect(result.record.photos).toEqual(record.photos);
+    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(record.id).all()).results).toHaveLength(1);
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=daily'))).text();
     expect(csv).toContain('"Photo Count"');
     expect(csv).toContain('"Street block","Flooded street","First Avenue","Third Avenue","","1","blocked-0.png"');
@@ -106,6 +123,7 @@ describe('durable blocked call reports', () => {
     const a = await first.json() as { record: ReportRecord };
     const b = await retry.json() as { record: ReportRecord };
     expect(a.record).toEqual(b.record);
+    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(id).all()).results).toHaveLength(1);
     expect(await photoFiles(id)).toHaveLength(1);
     expect((await POST(submission(id, { siteAddress: 'Test Avenue' }))).status).toBe(409);
   });
@@ -135,6 +153,7 @@ describe('durable blocked call reports', () => {
       expect((await POST(submission(id, {}, true, 2))).status).toBe(500);
       expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toBeNull();
       expect(await photoFiles(id)).toHaveLength(0);
+      expect(await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(id).first()).toBeNull();
     } finally { runtime.photos = undefined; errorLog.mockRestore(); }
     expect((await POST(submission(id, {}, true, 2))).status).toBe(201);
   });
@@ -175,6 +194,8 @@ describe('durable blocked call reports', () => {
     const { record } = await response.json() as { record: ReportRecord };
     expect(record.blockage).toBeNull();
     expect(record.photos).toEqual([]);
+    expect(await database.prepare('SELECT subject FROM report_email_outbox WHERE report_id = ?').bind(record.id).first())
+      .toHaveProperty('subject', expect.stringContaining('New complaint'));
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=complaints'))).text();
     expect(csv.split('\r\n')[0].split('","')).toHaveLength(12);
     expect(csv).toContain('"Test Staff","Dispatcher","Test Customer","456 Example Avenue","customer@example.invalid","Test complaint"');

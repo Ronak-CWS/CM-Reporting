@@ -48,6 +48,8 @@ npm.cmd run build
 
 The configuration check verifies authentication, private storage and the catalogue without starting a server. The build embeds `/cm-reporting` in browser URLs; rebuild if it changes. Production rejects missing credentials and the development authentication bypass.
 
+For submission notifications, complete [SMTP and recipient setup](email-notifications.md). The preflight also validates enabled email configuration. `npm.cmd run email:check` verifies SMTP connectivity/TLS/authentication without sending a message. Email needs outbound TCP 587; application traffic still uses loopback port 3013.
+
 ## IIS reverse proxy
 
 This follows TRUX's HTTPS IIS/ARR and managed loopback Node pattern. CM Reporting uses Next.js, so **all pages, APIs and assets** go to Node; there is no static `frontend/dist` installation. [Next.js self-hosting guidance](https://nextjs.org/docs/app/guides/self-hosting).
@@ -76,6 +78,8 @@ Startup type:      Automatic
 
 Use an approved service identity with read access to app/configuration and Modify access to private data and log directories. Configure stdout/stderr outside the web root, rotation, restart on failure, and termination of the child process tree when stopping the service. The entry point validates configuration every launch, checks the build's base path, then runs Next on loopback. No interactive terminal or npm in the service PATH is needed.
 
+When `REPORT_EMAIL_ENABLED=true`, the same entry point manages the email worker as a second child process. An unexpected child exit stops both so the service manager can restart them together. SMTP delivery errors are retried by the worker without stopping reporting. Start the service through this entry point so enabled notifications are processed.
+
 For a manual server check, run `npm.cmd start`. Stop that instance before starting the service; run only one instance. No service is installed, started or restarted by this code change.
 
 Check `curl.exe -I http://127.0.0.1:3013/cm-reporting/login` locally, then open the final HTTPS login through IIS. The public login page is intentional; unauthenticated `/cm-reporting/api/records` must return 401. Verify a real assigned-employee login before declaring deployment complete. Updates require reinstalling locked dependencies when changed, rebuilding, and restarting this service while preserving the environment/data.
@@ -96,6 +100,8 @@ Backup may run while the application is online. A SQLite snapshot determines whi
 Schedule backups with the company's existing service/Task Scheduler process and retention policy. Keep another copy on a second company-controlled disk or backup system. Do not copy only the live `.sqlite` file while it uses WAL. Back up the gateway settings and secrets separately using the company's configuration/credential backup process.
 
 To restore, verify the backup, stop the app service, and copy the whole verified backup into a **new empty private folder**. Point `CM_DATA_DIR` there and update/remove any catalogue override. Retain the original live folder for rollback. Restart manually, check report counts and original photo downloads, and submit a test report. Never restore over an open database.
+
+The reporting database also contains the email outbox. Keep notifications disabled while reviewing a restored queue: an older backup can include pending messages already delivered by the original server after that backup was taken.
 
 ## Deployment checks
 

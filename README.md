@@ -19,7 +19,13 @@ Access requires the assigned `CMReporting.Access` role and tenant-member claim. 
 - At least one photo is required: up to 6 photos, 10 MB each and 30 MB total. Original JPG, PNG, WebP, GIF and HEIC/HEIF files remain downloadable. HEIC preview depends on browser support.
 - The sidebar collapses on desktop and mobile. Desktop collapse retains accessible navigation icons. The expanded sidebar displays the Collective Waste Solutions and Circular Materials logos.
 
-Reports receive an automatic Mountain-time timestamp and open status. Office staff can review photos, record resolutions and export daily or Exhibit 7 complaint CSVs. Both export forms require valid dates with the end date on or after the start date; the API also rejects invalid or reversed dates. Complaint fields are preserved. Exports link to photos rather than embedding image bytes. Email delivery is not configured.
+Reports receive an automatic Mountain-time timestamp and open status. Office staff can review photos, record resolutions and export daily or Exhibit 7 complaint CSVs. Both export forms require valid dates with the end date on or after the start date; the API also rejects invalid or reversed dates. Complaint fields are preserved. Exports link to photos rather than embedding image bytes.
+
+## Email notifications
+
+New blocked-call and complaint submissions can notify approved recipients through the company SMTP relay using mandatory STARTTLS on port 587. [Email setup](docs/email-notifications.md) covers credentials, recipient configuration, verification and retries. The initial recipients are `rtandon@collectivewaste.ca` and `jmarshall@collectivewaste.ca`. Enable `REPORT_EMAIL_ENABLED` only after installing the real SMTP password in the private environment. The example leaves that password blank; no live email has been sent or verified.
+
+Notifications are committed with each report in a durable SQLite outbox, so SMTP outages do not lose submissions. The managed production start script runs the delivery worker and retries failures. Status edits do not send another submission email. Daily scheduled CSV delivery remains separate and is not enabled.
 
 Failed submissions retain the draft and photos while the page stays open; this is not an offline queue. Only the driver-name preference is stored in the browser.
 

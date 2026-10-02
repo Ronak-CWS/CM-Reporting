@@ -2,6 +2,8 @@ import { getDatabase, getPhotoStorage, type StorageDatabase } from './local-stor
 import { appPath } from './app-path.js';
 import { InputError } from './input-error';
 import { EVIDENCE_SCHEMA_SQL } from './evidence-schema';
+import { EMAIL_OUTBOX_SQL } from './email-outbox.js';
+import { reportEmailStatements } from './report-email';
 import type { ValidatedPhoto } from './photo-validation';
 import { edmontonTimestamp } from './report-time';
 import type {
@@ -61,6 +63,7 @@ async function initializeSchema(database: StorageDatabase) {
       'CREATE INDEX IF NOT EXISTS idx_report_records_community ON report_records(registered_community)',
     ),
     ...EVIDENCE_SCHEMA_SQL.map((sql) => database.prepare(sql)),
+    database.prepare(EMAIL_OUTBOX_SQL),
   ]);
   await database.prepare('PRAGMA optimize').run();
 }
@@ -274,6 +277,8 @@ export async function createReportRecord(input: CreateReportRecordInput, photos:
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(id, b.scope, b.reasonCode, b.reasonLabel, b.streetFrom, b.streetTo, b.notes, b.vehiclePlates, requestHash));
   }
+  // Queue email in the same transaction as the report. No SMTP calls occur in submission requests.
+  statements.push(...reportEmailStatements(database, input, id, referenceNumber, photos.length));
 
   try {
     for (const [position, photo] of photos.entries()) {

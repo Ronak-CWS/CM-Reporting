@@ -1,0 +1,1529 @@
+{
+  "sourceSnapshot": "2026-09-24",
+  "sources": {
+    "c9_routes": {
+      "path": "outputs/2026-09-21_parkland_estates_raymond_32/optimized_routes.csv",
+      "sha256": "4e270ee5e0324bb07f56e5fd7a45c5948660139267c5f92f958de708dc5a1437"
+    },
+    "c9_source": {
+      "path": "outputs/2026-09-21_parkland_estates_raymond_32/Addresses of Communities For Collective Waste - Parkland Estates 32 Units 2026-09-21.xlsx",
+      "sha256": "ff26026d4f489516fc1c65c48225009838d0373a6685480eb4b8e7df73a73ea4"
+    },
+    "c9_reviewed_workbook": {
+      "path": "playground/Combining Maps/C9_route_addresses_maps_final.xlsx",
+      "sha256": "e24b9c16bb3bbbb1221f7a2a35c2227ffa3ae27224f1a50963669a7b14dedf02"
+    },
+    "enchant_source": {
+      "path": "c9-address-router/data/add-ons/Alberta Address Collection - Hamlet of Enchant with Mailing Address.xlsx",
+      "sha256": "366fe7941cdf0ae03ca85509b24293e5f228d6b9cdc147334f082e33b36c5919"
+    },
+    "hays_source": {
+      "path": "c9-address-router/data/add-ons/Alberta Address Collection - Hamlet of Hays with Mailing Address.xlsx",
+      "sha256": "ad3873fe85a4bf568dc473e80b209f13b8e540a19e42bc4014ef0205ec4fe829"
+    },
+    "c9_previous": {
+      "path": "outputs/2026-09-18_all_additions_brooks_mobile_home_17925/optimized_routes.csv",
+      "sha256": "94199b94fb01a2edcbc9976fa819a04c3cab3e2964832df9f5f2359ffd0f5b2b"
+    },
+    "brooks_additions": {
+      "path": "outputs/2026-09-18_brooks_mobile_home_additions_source_386/Brooks_mobile_home_routing_additions.csv",
+      "sha256": "46b9ea5471706016574a8b0c1af6142f779c62ac6141afb902016341e5493153"
+    },
+    "wood_buffalo_routes": {
+      "path": "cws-section-route-optimizer/outputs/wood-buffalo-weekday-routes-2026-08-26-client-adjusted-final/max_3_trucks/optimized_routes.csv",
+      "sha256": "b610ffb6d8dd468deeecf4e14d02d5b7d023bcf3b4ea57f656ac3f3e3970c888"
+    },
+    "wood_buffalo_source": {
+      "path": "CM-Wood Buffalo/data/source/Customers.xlsx",
+      "sha256": "3188559ca4aa3e043574ba5fb5199a9cb7b4800e1e11bf8d85563b68e5b7e206"
+    }
+  },
+  "sourceRows": {
+    "C9": 17956,
+    "Wood Buffalo": 19458
+  },
+  "catalogueAddresses": 37267,
+  "communities": {
+    "Anzac": 238,
+    "Beaver Mines": 64,
+    "Bellevue": 519,
+    "Brooks": 4046,
+    "Burdett": 132,
+    "Cardston": 1286,
+    "Conklin": 108,
+    "Coutts": 137,
+    "Crowsnest Pass": 2409,
+    "Draper": 74,
+    "Enchant": 116,
+    "Foremost": 243,
+    "Fort Macleod": 1272,
+    "Fort McKay": 25,
+    "Fort McMurray": 18570,
+    "Granum": 218,
+    "Grassy Lake": 226,
+    "Gregoire Lake Estates": 88,
+    "Hays": 72,
+    "Janvier": 57,
+    "Lundbreck": 154,
+    "Magrath": 829,
+    "Milk River": 414,
+    "Pincher Creek": 1351,
+    "Raymond": 1377,
+    "Redcliff": 2130,
+    "Saprae Creek Estates": 298,
+    "Tilley": 148,
+    "Vauxhall": 435,
+    "Warner": 208,
+    "Winnifred": 23
+  },
+  "c9SourceRowsBySheet": {
+    "Hamlet of Burdett & Winnifred": 159,
+    "City of Brooks": 3518,
+    "Hamlet of Tilley": 149,
+    "Town of Cardston": 1287,
+    "Bellevue,Blair,Cole,Frank,HC": 2980,
+    "Town of Fort Macleod": 1275,
+    "Town of Magrath": 849,
+    "Village of Coutts": 137,
+    "Town of Milk River": 414,
+    "Hamlet Lundbreck & Beavermine": 218,
+    "Town of Pincher Creek": 1359,
+    "Town of Raymond": 1402,
+    "Town of Redcliff": 2130,
+    "Village of Foremost": 247,
+    "Hamlet of Grassy Lake": 226,
+    "Town of Vauxhall": 451,
+    "Village of Warner": 208,
+    "Hamlet of Granum": 218,
+    "City of Brooks - Maple Drive": 74,
+    "City of Brooks - Sunnylea Additions": 78,
+    "Brooks - Mobile Home Additions": 386
+  },
+  "c9UnreconciledRows": [],
+  "c9ReviewedWorkbookMatchesAllServices": true,
+  "c9ReviewedAddressCorrections": [
+    {
+      "service_id": "REAL_CROWSNEST_PASS_007567",
+      "source_sheet": "Bellevue,Blair,Cole,Frank,HC",
+      "source_excel_row": "2470",
+      "workbook_community": "Coleman",
+      "unit": "",
+      "street_number": "",
+      "street_name": "Nw 1/4 4 8 4 W 5"
+    },
+    {
+      "service_id": "REAL_CARDSTON_005073",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "1255",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "",
+      "street_name": "Meridian 4 Range 25 Township 3"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003871",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "53",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "363",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003872",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "54",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "343",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003873",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "55",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "323",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003874",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "56",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "320",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003875",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "57",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "340",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003876",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "58",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "360",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003870",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "52",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "373",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_CARDSTON_003877",
+      "source_sheet": "Town of Cardston",
+      "source_excel_row": "59",
+      "workbook_community": "Cardston",
+      "unit": "",
+      "street_number": "380",
+      "street_name": "2A Ave W"
+    },
+    {
+      "service_id": "REAL_TILLEY_003821",
+      "source_sheet": "Hamlet of Tilley",
+      "source_excel_row": "151",
+      "workbook_community": "Tilley",
+      "unit": "",
+      "street_number": "173077",
+      "street_name": "Range Road 130A"
+    },
+    {
+      "service_id": "REAL_TILLEY_003719",
+      "source_sheet": "Hamlet of Tilley",
+      "source_excel_row": "46",
+      "workbook_community": "Tilley",
+      "unit": "",
+      "street_number": "173078",
+      "street_name": "Range Road 130A"
+    },
+    {
+      "service_id": "REAL_TILLEY_003718",
+      "source_sheet": "Hamlet of Tilley",
+      "source_excel_row": "45",
+      "workbook_community": "Tilley",
+      "unit": "",
+      "street_number": "173076",
+      "street_name": "Range Road 130A"
+    },
+    {
+      "service_id": "REAL_TILLEY_003717",
+      "source_sheet": "Hamlet of Tilley",
+      "source_excel_row": "44",
+      "workbook_community": "Tilley",
+      "unit": "",
+      "street_number": "173074",
+      "street_name": "Range Road 130A"
+    }
+  ],
+  "c9ExcludedTemplateRow": {
+    "sheet": "Town of Magrath",
+    "row": 661,
+    "reason": "123 123 placeholder absent from approved final routes"
+  },
+  "serviceAddressOnlyAddons": {
+    "Enchant": 119,
+    "Hays": 73
+  },
+  "woodBuffaloCustomerSourceRows": 19273,
+  "woodBuffaloLinkedSourceRows": 19273,
+  "woodBuffaloUnlinkedSourceRows": [],
+  "brooksAdditionsIncluded": 386,
+  "parklandUnitsIncluded": [
+    "1",
+    "10",
+    "11",
+    "12",
+    "13",
+    "14",
+    "15",
+    "16",
+    "17",
+    "18",
+    "19",
+    "2",
+    "20",
+    "21",
+    "22",
+    "23",
+    "24",
+    "25",
+    "26",
+    "27",
+    "28",
+    "29",
+    "3",
+    "30",
+    "4",
+    "5",
+    "6",
+    "7",
+    "8",
+    "8B",
+    "9",
+    "9B"
+  ],
+  "collapsedIdenticalOptions": [
+    {
+      "community": "Magrath",
+      "address": "35 2 St SW",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000603"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000604"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000605"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000606"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000607"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000608"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "231 1 Ave SE",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009674"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009673"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "1 Diamond Willow Lane",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000112"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000113"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000114"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000115"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "10 Centennial Place",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009875"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009941"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "86 1 St SW",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_010010"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_010009"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "32 1 St SW",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009977"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009976"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "10 & 12 1 St SW",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009763"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009764"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "340 1 Ave NE",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000280"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000281"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "348 1 Ave NE",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000282"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_MF_000283"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "321 Harker Ave E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009736"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009735"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009734"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "34 3 St NE",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009586"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009585"
+        }
+      ]
+    },
+    {
+      "community": "Magrath",
+      "address": "106 2 St NW",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009997"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_MAGRATH_009998"
+        }
+      ]
+    },
+    {
+      "community": "Pincher Creek",
+      "address": "672 Mcdougall St./828 Christi",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_011708"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_011709"
+        }
+      ]
+    },
+    {
+      "community": "Pincher Creek",
+      "address": "1110 Tumbleweed Court",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001271"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001270"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001269"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001268"
+        }
+      ]
+    },
+    {
+      "community": "Pincher Creek",
+      "address": "1104 Tumbleweed Court",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001267"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001266"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001265"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_001264"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "6101 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006889"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006888"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006887"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006886"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006885"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006884"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006883"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006882"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006881"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006880"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006879"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006878"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006877"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006876"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006875"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006874"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006873"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006872"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006871"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006870"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006869"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006868"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006867"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006866"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006865"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006864"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006863"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006862"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006861"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006860"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006859"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006858"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006890"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "5302 19 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006794"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006793"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006792"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006791"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006790"
+        }
+      ]
+    },
+    {
+      "community": "Pincher Creek",
+      "address": "911 Macleod St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_MF_000758"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_PINCHER_CREEK_011608"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "262S 250 St W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_012770"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_012771"
+        }
+      ]
+    },
+    {
+      "community": "Cardston",
+      "address": "677 4th St W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CARDSTON_004945"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CARDSTON_004944"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "2817 79 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007365"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007364"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "8717 24 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007162"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007161"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "2111 89 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007501"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007502"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "2102 131 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005764"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005762"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005765"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005763"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "12316 21 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006307"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006306"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "12313 21 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006304"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006305"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "11333 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006184"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006183"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "12331 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006229"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006226"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006228"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006227"
+        }
+      ]
+    },
+    {
+      "community": "Foremost",
+      "address": "507 1st Street East",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015682"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015683"
+        }
+      ]
+    },
+    {
+      "community": "Foremost",
+      "address": "603 2nd Avenue West",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015710"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015711"
+        }
+      ]
+    },
+    {
+      "community": "Foremost",
+      "address": "3 Greenview Court",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015861"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015862"
+        }
+      ]
+    },
+    {
+      "community": "Foremost",
+      "address": "5 Greenview Court",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015864"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FOREMOST_015863"
+        }
+      ]
+    },
+    {
+      "community": "Burdett",
+      "address": "311 1 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BURDETT_000086"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BURDETT_000085"
+        }
+      ]
+    },
+    {
+      "community": "Winnifred",
+      "address": "112040 Rge Rd 95",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000140"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000141"
+        }
+      ]
+    },
+    {
+      "community": "Winnifred",
+      "address": "270 Park St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000149"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000150"
+        }
+      ]
+    },
+    {
+      "community": "Winnifred",
+      "address": "112024 Rge Rd 95",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000136"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_WINNIFRED_000137"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "22606 7 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007983"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007984"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007981"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007982"
+        }
+      ]
+    },
+    {
+      "community": "Enchant",
+      "address": "116 Retzke Street",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0109"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0116"
+        }
+      ]
+    },
+    {
+      "community": "Enchant",
+      "address": "208 Retzke Street",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0108"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0117"
+        }
+      ]
+    },
+    {
+      "community": "Enchant",
+      "address": "104 North Avenue",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0095"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_ENCHANT_0081"
+        }
+      ]
+    },
+    {
+      "community": "Vauxhall",
+      "address": "600 2 St North",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016154"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_MF_000122"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016174"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016184"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016244"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016245"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016246"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016264"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016296"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016310"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016342"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016374"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016379"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016402"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_016505"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_MOBILE_000036"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_VAUXHALL_MF_000121"
+        }
+      ]
+    },
+    {
+      "community": "Hays",
+      "address": "209 5 Street",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_HAYS_0037"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "ADDON_HAYS_0042"
+        }
+      ]
+    },
+    {
+      "community": "Crowsnest Pass",
+      "address": "102 Southmore Dr",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006431"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006430"
+        }
+      ]
+    },
+    {
+      "community": "Fort Macleod",
+      "address": "2114 7 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_008719"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_008473"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "341E 200 St N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013245"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013242"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013244"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013243"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "165W 300 St N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013040"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013039"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "185W 300 St N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013038"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013037"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "331N 200 St W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013035"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013034"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013033"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013032"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013031"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013030"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "128W 400 St N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013054"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013053"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "475N 200 St E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013447"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013452"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013448"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013451"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013450"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "467N 200 St E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013443"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013445"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013444"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013446"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "459N 200 St E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013442"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013440"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013439"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_013441"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "471 Broadway N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_MF_001363"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_MF_001364"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "467 Broadway N",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_MF_001361"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_MF_001362"
+        }
+      ]
+    },
+    {
+      "community": "Raymond",
+      "address": "241N 200 St W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_012976"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_RAYMOND_012975"
+        }
+      ]
+    },
+    {
+      "community": "Fort Macleod",
+      "address": "337 11 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_008912"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_008839"
+        }
+      ]
+    },
+    {
+      "community": "Fort Macleod",
+      "address": "504 17 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_009314"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_FORT_MACLEOD_009296"
+        }
+      ]
+    },
+    {
+      "community": "Tilley",
+      "address": "265 1 St W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_TILLEY_003723"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_TILLEY_003722"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "92 Upland Crt W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003370"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003374"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003375"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003382"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "314 2 Ave E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000658"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000621"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "804 Sutherland Dr E",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003185"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_003184"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "Unit R, 1027 2 Ave W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000666"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000665"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "Unit R, 1023 2 Ave W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000668"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000667"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "Unit R, 1019 2 Ave W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000669"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000670"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "Unit D, 1008 2 Ave W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000664"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000699"
+        }
+      ]
+    },
+    {
+      "community": "Brooks",
+      "address": "Unit O, 1011 2 Ave W",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000673"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_BROOKS_000674"
+        }
+      ]
+    }
+  ]
+}

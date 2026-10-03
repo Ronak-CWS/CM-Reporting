@@ -40,8 +40,8 @@ next-env.d.ts
 /outputs/
 /work/
 /.local-data/
-/data/service-locations.json
-/data/service-locations-audit.json
+# /data/service-locations.json
+# /data/service-locations-audit.json
 *.sqlite
 *.sqlite-wal
 *.sqlite-shm

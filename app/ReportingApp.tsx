@@ -16,6 +16,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from 'react';
 import type {
@@ -618,15 +619,17 @@ function Field({
   required = false,
   children,
   hint,
+  fullWidth = false,
 }: {
   label: string;
   name: string;
   required?: boolean;
   children: React.ReactNode;
   hint?: string;
+  fullWidth?: boolean;
 }) {
   return (
-    <label className="form-field" htmlFor={name}>
+    <label className={`form-field${fullWidth ? ' form-field--full' : ''}`} htmlFor={name}>
       <span>{label}{required ? <b aria-hidden="true"> *</b> : null}</span>
       {children}
       {hint ? <small>{hint}</small> : null}
@@ -646,6 +649,11 @@ function ComplaintFormModal({
   const [communitySelected, setCommunitySelected] = useState(false);
   const [category, setCategory] = useState('');
   const [categoryOtherReason, setCategoryOtherReason] = useState('');
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (error) errorRef.current?.focus();
+  }, [error]);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -708,54 +716,58 @@ function ComplaintFormModal({
       <section className="report-modal" role="dialog" aria-modal="true" aria-labelledby="report-form-title">
         <header className="report-modal__header">
           <div><p className="eyebrow">Exhibit 7 entry</p><h2 id="report-form-title">Log an inquiry or complaint</h2><p>Capture the complete customer and resolution record.</p></div>
-          <button className="icon-button" type="button" disabled={saving} onClick={onClose} aria-label="Close form">×</button>
+          <button className="icon-button" type="button" disabled={saving} onClick={onClose} aria-label="Close form">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
+          </button>
         </header>
         <form className="report-form" onSubmit={handleSubmit}>
-          {error ? <div className="form-error" role="alert">{error}</div> : null}
-          <fieldset disabled={saving}>
-            <legend>Inquiry details</legend>
-            <div className="form-grid">
-              <Field label="Date and time of inquiry or complaint" name="occurredAt" required><input id="occurredAt" name="occurredAt" type="datetime-local" defaultValue={edmontonDateTimeLocal()} required /></Field>
-              <div className="form-field">
-                <LocationAutocomplete id="registeredCommunity" label="Registered community" kind="community"
-                  value={community} selected={communitySelected} showRequired disabled={saving} placeholder="Start typing a community"
-                  onChange={(value, selected) => { setCommunity(value); setCommunitySelected(selected); }} />
+          <div className="report-form__body">
+            {error ? <div ref={errorRef} className="form-error" role="alert" tabIndex={-1}>{error}</div> : null}
+            <fieldset disabled={saving}>
+              <legend><span className="form-section-number" aria-hidden="true">1</span>Inquiry details</legend>
+              <div className="form-grid">
+                <Field label="Date and time of inquiry or complaint" name="occurredAt" required><input id="occurredAt" name="occurredAt" type="datetime-local" defaultValue={edmontonDateTimeLocal()} required /></Field>
+                <div className="form-field">
+                  <LocationAutocomplete id="registeredCommunity" label="Registered community" kind="community"
+                    value={community} selected={communitySelected} showRequired disabled={saving} placeholder="Start typing a community"
+                    onChange={(value, selected) => { setCommunity(value); setCommunitySelected(selected); }} />
+                </div>
+                <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
+                <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
+                <Field label="Inquiry or complaint category" name="category" required fullWidth><select id="category" name="category" value={category} onChange={(event) => { setCategory(event.target.value); setCategoryOtherReason(''); }} required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>
+                {category === 'Other' ? <Field label="Explain the other reason" name="categoryOtherReason" required fullWidth hint={`Explain why this inquiry or complaint does not fit the listed categories. Maximum ${COMPLAINT_OTHER_REASON_LIMIT} characters.`}>
+                  <textarea id="categoryOtherReason" name="categoryOtherReason" rows={3} required maxLength={COMPLAINT_OTHER_REASON_LIMIT} value={categoryOtherReason} onChange={(event) => setCategoryOtherReason(event.target.value)} />
+                </Field> : null}
               </div>
-              <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
-              <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
-              <Field label="Inquiry or complaint category" name="category" required><select id="category" name="category" value={category} onChange={(event) => { setCategory(event.target.value); setCategoryOtherReason(''); }} required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>
-              {category === 'Other' ? <Field label="Explain the other reason" name="categoryOtherReason" required hint={`Explain why this inquiry or complaint does not fit the listed categories. Maximum ${COMPLAINT_OTHER_REASON_LIMIT} characters.`}>
-                <textarea id="categoryOtherReason" name="categoryOtherReason" rows={3} required maxLength={COMPLAINT_OTHER_REASON_LIMIT} value={categoryOtherReason} onChange={(event) => setCategoryOtherReason(event.target.value)} />
-              </Field> : null}
-            </div>
-          </fieldset>
-          <fieldset disabled={saving}>
-            <legend>Employee logging the record</legend>
-            <div className="form-grid">
-              <Field label="Employee name" name="employeeName" required><input id="employeeName" name="employeeName" type="text" autoComplete="name" required /></Field>
-              <Field label="Employee title" name="employeeTitle" required><input id="employeeTitle" name="employeeTitle" type="text" placeholder="Customer service representative" required /></Field>
-            </div>
-          </fieldset>
-          <fieldset disabled={saving}>
-            <legend>Person making the inquiry or complaint</legend>
-            <div className="form-grid">
-              <Field label="Customer name" name="customerName" required><input id="customerName" name="customerName" type="text" required /></Field>
-              <Field label="Address" name="customerAddress" required><input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required /></Field>
-              <Field label="Contact information" name="customerContactInformation" required hint="Phone number, email address, or other preferred contact."><input id="customerContactInformation" name="customerContactInformation" type="text" required /></Field>
-              <Field label="Assigned to" name="assignedTo"><input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" /></Field>
-            </div>
-          </fieldset>
-          <fieldset disabled={saving}>
-            <legend>Complaint and resolution</legend>
-            <div className="form-grid">
-              <Field label="Description of inquiry or complaint" name="issueDescription" required><textarea id="issueDescription" name="issueDescription" rows={4} required /></Field>
-              <Field label="Description of resolution" name="resolutionDescription"><textarea id="resolutionDescription" name="resolutionDescription" rows={4} placeholder="Leave blank if the complaint is still open" /></Field>
-              <Field label="Status" name="status" required><select id="status" name="status" defaultValue="Open" required>{STATUS_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></Field>
-              <Field label="Date and time of resolution" name="resolvedAt"><input id="resolvedAt" name="resolvedAt" type="datetime-local" /></Field>
-            </div>
-          </fieldset>
+            </fieldset>
+            <fieldset disabled={saving}>
+              <legend><span className="form-section-number" aria-hidden="true">2</span>Employee logging the record</legend>
+              <div className="form-grid">
+                <Field label="Employee name" name="employeeName" required><input id="employeeName" name="employeeName" type="text" autoComplete="name" required /></Field>
+                <Field label="Employee title" name="employeeTitle" required><input id="employeeTitle" name="employeeTitle" type="text" placeholder="Customer service representative" required /></Field>
+              </div>
+            </fieldset>
+            <fieldset disabled={saving}>
+              <legend><span className="form-section-number" aria-hidden="true">3</span>Person making the inquiry or complaint</legend>
+              <div className="form-grid">
+                <Field label="Customer name" name="customerName" required><input id="customerName" name="customerName" type="text" required /></Field>
+                <Field label="Address" name="customerAddress" required><input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required /></Field>
+                <Field label="Contact information" name="customerContactInformation" required hint="Phone number, email address, or other preferred contact."><input id="customerContactInformation" name="customerContactInformation" type="text" required /></Field>
+                <Field label="Assigned to" name="assignedTo"><input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" /></Field>
+              </div>
+            </fieldset>
+            <fieldset disabled={saving}>
+              <legend><span className="form-section-number" aria-hidden="true">4</span>Complaint and resolution</legend>
+              <div className="form-grid">
+                <Field label="Description of inquiry or complaint" name="issueDescription" required><textarea id="issueDescription" name="issueDescription" rows={4} required /></Field>
+                <Field label="Description of resolution" name="resolutionDescription"><textarea id="resolutionDescription" name="resolutionDescription" rows={4} placeholder="Leave blank if the complaint is still open" /></Field>
+                <Field label="Status" name="status" required><select id="status" name="status" defaultValue="Open" required>{STATUS_OPTIONS.map((option) => <option key={option}>{option}</option>)}</select></Field>
+                <Field label="Date and time of resolution" name="resolvedAt"><input id="resolvedAt" name="resolvedAt" type="datetime-local" /></Field>
+              </div>
+            </fieldset>
+          </div>
           <footer className="report-form__footer">
-            <span><b>*</b> Required for the reporting record</span>
+            <span><b>*</b> Required fields</span>
             <div><button className="button button--secondary" type="button" onClick={onClose} disabled={saving}>Cancel</button><button className="button button--primary" type="submit" disabled={saving}>{saving ? 'Saving…' : 'Save complaint'}</button></div>
           </footer>
         </form>

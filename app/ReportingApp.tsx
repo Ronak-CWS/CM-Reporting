@@ -5,6 +5,7 @@ import { appPath } from '../lib/app-path.js';
 import { reportingFetch } from '../lib/reporting-fetch';
 import type { SignedInUser } from '../lib/auth-store';
 import BlockedCallWizard from './components/BlockedCallWizard';
+import LocationAutocomplete from './components/LocationAutocomplete';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import { exportDateRangeError } from '../lib/export-date-range';
@@ -650,6 +651,8 @@ function ComplaintFormModal({
 }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
+  const [community, setCommunity] = useState('');
+  const [communitySelected, setCommunitySelected] = useState(false);
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -667,13 +670,17 @@ function ComplaintFormModal({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (saving) return;
+    if (!communitySelected) {
+      setError('Choose a registered community from the service list.');
+      return;
+    }
     setSaving(true);
     setError('');
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
     const value = (name: string) => String(values[name] ?? '').trim();
     const payload: CreateReportRecordInput = {
       recordType: 'complaint', occurredAt: value('occurredAt'),
-      registeredCommunity: value('registeredCommunity'), siteAddress: '', routeNumber: '', serviceType: '',
+      registeredCommunity: community, siteAddress: '', routeNumber: '', serviceType: '',
       category: value('category'),
       priority: (value('priority') || 'Normal') as CreateReportRecordInput['priority'],
       status: (value('status') || 'Open') as RecordStatus,
@@ -711,7 +718,11 @@ function ComplaintFormModal({
             <legend>Inquiry details</legend>
             <div className="form-grid">
               <Field label="Date and time of inquiry or complaint" name="occurredAt" required><input id="occurredAt" name="occurredAt" type="datetime-local" defaultValue={edmontonDateTimeLocal()} required /></Field>
-              <Field label="Registered community" name="registeredCommunity" required><input id="registeredCommunity" name="registeredCommunity" type="text" placeholder="Enter community" required /></Field>
+              <div className="form-field">
+                <LocationAutocomplete id="registeredCommunity" label="Registered community" kind="community"
+                  value={community} selected={communitySelected} showRequired disabled={saving} placeholder="Start typing a community"
+                  onChange={(value, selected) => { setCommunity(value); setCommunitySelected(selected); }} />
+              </div>
               <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
               <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
               <Field label="Inquiry or complaint category" name="category" required><select id="category" name="category" defaultValue="" required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>

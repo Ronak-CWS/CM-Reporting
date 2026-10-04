@@ -54,7 +54,7 @@
 .location-input-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #13849a; font-size: 1.4rem; pointer-events: none; }
 .location-input--selected input { border-color: #62ad98; }
 .location-input--selected .location-input-icon { color: #237451; font-size: 1rem; }
-.location-dropdown { position: absolute; z-index: 10; top: 82px; left: 0; right: 0; border: 1px solid #b7cdd2; border-radius: 0 0 12px 12px; background: #fff; box-shadow: 0 10px 25px #16304720; overflow: hidden; }
+.location-dropdown { position: absolute; z-index: 10; top: 100%; left: 0; right: 0; border: 1px solid #b7cdd2; border-radius: 0 0 12px 12px; background: #fff; box-shadow: 0 10px 25px #16304720; overflow: hidden; }
 .location-dropdown ul { list-style: none; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; }
 .location-dropdown li { min-height: 48px; padding: 13px 14px; border-bottom: 1px solid #edf2f3; color: #29485d; font-size: .9rem; line-height: 1.45; cursor: pointer; overflow-wrap: anywhere; }
 .location-dropdown li:hover, .location-dropdown li[aria-selected='true'] { background: #e1f0f4; color: #0b5369; }

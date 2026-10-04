@@ -3,6 +3,7 @@ import { accessResponse } from '../../../lib/request-access';
 import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-input';
 import { validatePhotos } from '../../../lib/photo-validation';
 import { readReportBody } from '../../../lib/request-body';
+import { getLocationCatalogue } from '../../../lib/location-catalogue-store';
 import {
   createReportRecord,
   listReportRecords,
@@ -97,6 +98,14 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
     throw new Error('Describe the resolution before marking the record resolved.');
   }
 
+  if (input.recordType === 'complaint') {
+    const catalogue = getLocationCatalogue();
+    if (!catalogue.available) throw new InputError('The community list is not available. Please contact the office.', 503);
+    const community = catalogue.resolveCommunity(input.registeredCommunity);
+    if (!community) throw new InputError('Choose a registered community from the service list.');
+    input.registeredCommunity = community;
+  }
+
   return input;
 }
 
@@ -162,7 +171,10 @@ export async function POST(request: Request) {
     if (files.length) throw new InputError('Photo uploads are currently available for blocked calls.');
     let input: CreateReportRecordInput;
     try { input = parseCreateInput(payload); }
-    catch (error) { throw new InputError(error instanceof Error ? error.message : 'Check the report details.'); }
+    catch (error) {
+      if (error instanceof InputError) throw error;
+      throw new InputError(error instanceof Error ? error.message : 'Check the report details.');
+    }
     const record = await createReportRecord(input);
     return NextResponse.json({ record }, { status: 201 });
   } catch (error) {

@@ -24,6 +24,9 @@ export function createLocationCatalogue(rows: ServiceLocation[]) {
 
   return {
     available: communities.size > 0,
+    resolveCommunity(name: string) {
+      return communities.get(key(name))?.label || null;
+    },
     search(kind: LocationKind, query: string, community = ''): LocationSuggestions {
       const list = kind === 'community' ? communityLabels : lists.get(key(community))?.[kind === 'street' ? 'streets' : 'addresses'] || [];
       const tokens = key(query).split(/\s+/).filter(Boolean);

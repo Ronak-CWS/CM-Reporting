@@ -13,11 +13,12 @@ interface Props {
   selected: boolean;
   community?: string;
   disabled?: boolean;
+  showRequired?: boolean;
   placeholder: string;
   onChange: (value: string, selected: boolean) => void;
 }
 
-export default function LocationAutocomplete({ id, label, kind, value, selected, community = '', disabled = false, placeholder, onChange }: Props) {
+export default function LocationAutocomplete({ id, label, kind, value, selected, community = '', disabled = false, showRequired = false, placeholder, onChange }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<{ search: string; options: string[]; hasMore: boolean; error: string } | null>(null);
   const [active, setActive] = useState(-1);
@@ -55,7 +56,7 @@ export default function LocationAutocomplete({ id, label, kind, value, selected,
   return <div className="location-autocomplete" onBlur={(event) => {
     if (!event.currentTarget.contains(event.relatedTarget)) { setOpen(false); setActive(-1); }
   }}>
-    <label htmlFor={id}>{label}</label>
+    <label htmlFor={id}>{label}{showRequired ? <b aria-hidden="true"> *</b> : null}</label>
     <div className={`location-input${selected ? ' location-input--selected' : ''}`}>
       <input id={id} role="combobox" aria-autocomplete="list" aria-expanded={open && !disabled} aria-controls={`${id}-options`}
         aria-activedescendant={open && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
@@ -70,19 +71,19 @@ export default function LocationAutocomplete({ id, label, kind, value, selected,
           } else if (event.key === 'Enter' && open) {
             event.preventDefault();
             if (activeIndex >= 0) choose(options[activeIndex]);
-          } else if (event.key === 'Escape') { event.preventDefault(); setOpen(false); }
+          } else if (event.key === 'Escape' && open) { event.preventDefault(); event.stopPropagation(); setOpen(false); }
         }} />
       <span className="location-input-icon" aria-hidden="true">{selected ? '✓' : '⌕'}</span>
+      {open && !disabled ? <div className="location-dropdown">
+        <ul ref={listRef} id={`${id}-options`} role="listbox" aria-label={`${label} options`} aria-busy={loading}>
+          {options.map((option, index) => <li key={option} id={`${id}-option-${index}`} role="option" aria-selected={activeIndex === index}
+            onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>{option}</li>)}
+        </ul>
+        {loading ? <p role="status">Searching…</p> : current?.error ? <div className="location-search-error"><p role="alert">{current.error}</p><button className="text-button" type="button" onClick={() => { setResult(null); setRetry((value) => value + 1); }}>Try again</button></div>
+          : !options.length ? <p role="status">No matching {kind === 'community' ? 'communities' : kind === 'street' ? 'streets' : 'addresses'}. Check the spelling or contact the office.</p>
+            : current?.hasMore ? <p role="status">Keep typing to narrow the list.</p> : null}
+      </div> : null}
     </div>
-    <small id={`${id}-hint`}>{disabled ? 'Select a community first.' : selected ? 'Selected from the service list.' : 'Start typing, then choose an option from the list.'}</small>
-    {open && !disabled ? <div className="location-dropdown">
-      <ul ref={listRef} id={`${id}-options`} role="listbox" aria-label={`${label} options`} aria-busy={loading}>
-        {options.map((option, index) => <li key={option} id={`${id}-option-${index}`} role="option" aria-selected={activeIndex === index}
-          onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>{option}</li>)}
-      </ul>
-      {loading ? <p role="status">Searching…</p> : current?.error ? <div className="location-search-error"><p role="alert">{current.error}</p><button className="text-button" type="button" onClick={() => { setResult(null); setRetry((value) => value + 1); }}>Try again</button></div>
-        : !options.length ? <p role="status">No matching {kind === 'community' ? 'communities' : kind === 'street' ? 'streets' : 'addresses'}. Check the spelling or contact the office.</p>
-          : current?.hasMore ? <p role="status">Keep typing to narrow the list.</p> : null}
-    </div> : null}
+    <small id={`${id}-hint`}>{disabled ? kind === 'community' ? 'Please wait.' : 'Select a community first.' : selected ? 'Selected from the service list.' : 'Start typing, then choose an option from the list.'}</small>
   </div>;
 }

@@ -1,7 +1,8 @@
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { NextResponse } from 'next/server';
 import { appPath, basePath } from './app-path.js';
-import { FLOW_COOKIE, FLOW_SECONDS, microsoftConfig, SESSION_COOKIE, SESSION_SECONDS } from './auth-config';
-import { consumeLoginFlow, createSession, deleteLoginFlow, deleteSession, saveLoginFlow } from './auth-store';
+import { FLOW_COOKIE, FLOW_SECONDS, guestLoginConfig, GUEST_SESSION_SECONDS, microsoftConfig, SESSION_COOKIE, SESSION_SECONDS } from './auth-config';
+import { consumeLoginFlow, createSession, deleteLoginFlow, deleteSession, saveLoginFlow, takeGuestLoginAttempt } from './auth-store';
 import { AccessDenied, beginMicrosoftLogin, completeMicrosoftLogin } from './microsoft-identity';
 import { mutationFailure, requestCookie } from './request-access';
 
@@ -47,6 +48,59 @@ export async function microsoftCallback(request: Request) {
   }
   setCookie(response, FLOW_COOKIE, '', 0);
   return response;
+}
+
+export async function guestLogin(request: Request) {
+  try {
+    if (request.method !== 'POST') return new NextResponse(null, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'private, no-store' } });
+    const failure = mutationFailure(request);
+    if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } });
+    const settings = guestLoginConfig();
+    if (!settings) return redirect(appPath('/login?error=guest-unavailable'));
+    const retryAfter = takeGuestLoginAttempt(settings.policy);
+    if (retryAfter) {
+      const response = redirect(appPath('/login?error=guest-rate'));
+      response.headers.set('Retry-After', String(retryAfter));
+      return response;
+    }
+    const contentType = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
+    if (contentType !== 'application/x-www-form-urlencoded') {
+      return redirect(appPath('/login?error=guest-signin'));
+    }
+    // Bound the stream as well as Content-Length so chunked requests cannot
+    // allocate an unbounded password body. Passwords never enter a URL or log.
+    let received = 0;
+    if (Number(request.headers.get('content-length')) > 2048) return redirect(appPath('/login?error=guest-signin'));
+    const bounded = request.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+      transform(chunk, controller) {
+        received += chunk.byteLength;
+        if (received > 2048) throw new Error('Guest sign-in form is too large.');
+        controller.enqueue(chunk);
+      },
+    }));
+    let password: string;
+    try {
+      const form = new URLSearchParams(await new Response(bounded).text());
+      if (form.getAll('password').length !== 1) return redirect(appPath('/login?error=guest-signin'));
+      password = form.get('password') || '';
+    } catch {
+      return redirect(appPath('/login?error=guest-signin'));
+    }
+    if (password.length > 128 || !timingSafeEqual(createHash('sha256').update(password).digest(), settings.passwordDigest)) {
+      return redirect(appPath('/login?error=guest-signin'));
+    }
+    const maxAge = Math.min(GUEST_SESSION_SECONDS, settings.expiresAt - Math.floor(Date.now() / 1000));
+    if (maxAge <= 0) return redirect(appPath('/login?error=guest-unavailable'));
+    deleteSession(requestCookie(request, SESSION_COOKIE));
+    deleteLoginFlow(requestCookie(request, FLOW_COOKIE));
+    const response = redirect(appPath('/'));
+    const token = createSession({ kind: 'guest', name: 'Guest tester', username: 'Temporary test access' }, settings.policy, maxAge);
+    setCookie(response, SESSION_COOKIE, token, maxAge);
+    setCookie(response, FLOW_COOKIE, '', 0);
+    return response;
+  } catch {
+    return redirect(appPath('/login?error=guest-unavailable'));
+  }
 }
 
 export async function logout(request: Request) {

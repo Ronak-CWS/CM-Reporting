@@ -5,12 +5,21 @@ import { DatabaseSync } from 'node:sqlite';
 import { dataDirectory } from './storage-config';
 import { FLOW_SECONDS, SESSION_SECONDS } from './auth-config';
 
-export interface SignedInUser {
+export interface MicrosoftUser {
+  kind?: 'microsoft';
   tenantId: string;
   objectId: string;
   name: string;
   username: string;
 }
+
+export interface GuestUser {
+  kind: 'guest';
+  name: string;
+  username: string;
+}
+
+export type SignedInUser = MicrosoftUser | GuestUser;
 
 export interface LoginFlow {
   state: string;
@@ -42,6 +51,9 @@ function database() {
         token_hash TEXT PRIMARY KEY, state_hash TEXT NOT NULL, flow_json TEXT NOT NULL, expires_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS login_flows_expiry ON login_flows(expires_at);
+      CREATE TABLE IF NOT EXISTS guest_login_attempts (
+        policy TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL
+      );
     `);
     processAuth.cmAuthStore = { directory, database: db };
   }
@@ -73,10 +85,10 @@ export function deleteLoginFlow(token: string) {
   if (validToken(token)) database().prepare('DELETE FROM login_flows WHERE token_hash = ?').run(hash(token));
 }
 
-export function createSession(user: SignedInUser, policy: string) {
+export function createSession(user: SignedInUser, policy: string, maxAge = SESSION_SECONDS) {
   removeExpired();
   const token = randomBytes(32).toString('base64url');
-  database().prepare('INSERT INTO sessions VALUES (?, ?, ?, ?)').run(hash(token), policy, JSON.stringify(user), now() + SESSION_SECONDS);
+  database().prepare('INSERT INTO sessions VALUES (?, ?, ?, ?)').run(hash(token), policy, JSON.stringify(user), now() + Math.min(maxAge, SESSION_SECONDS));
   return token;
 }
 
@@ -89,6 +101,22 @@ export function readSession(token: string, policy: string): SignedInUser | null 
 
 export function deleteSession(token: string) {
   if (validToken(token)) database().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hash(token));
+}
+
+export function takeGuestLoginAttempt(policy: string) {
+  const db = database();
+  const current = now();
+  db.prepare('DELETE FROM guest_login_attempts WHERE reset_at <= ?').run(current);
+  // One shared test account: persist a global limit across restarts/workers rather
+  // than trusting caller-supplied IP headers behind the shared IIS proxy.
+  const accepted = db.prepare(`
+    INSERT INTO guest_login_attempts VALUES (?, 1, ?)
+    ON CONFLICT(policy) DO UPDATE SET attempts = attempts + 1 WHERE attempts < 10
+    RETURNING reset_at
+  `).get(policy, current + 5 * 60);
+  if (accepted) return 0;
+  const row = db.prepare('SELECT reset_at FROM guest_login_attempts WHERE policy = ?').get(policy) as { reset_at: number } | undefined;
+  return Math.max(1, (row?.reset_at || current + 5 * 60) - current);
 }
 
 export function closeAuthStore() {

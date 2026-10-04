@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { authenticationMode, microsoftConfig, publicOrigin, SESSION_COOKIE } from './auth-config';
+import { authenticationMode, guestLoginConfig, microsoftConfig, publicOrigin, SESSION_COOKIE } from './auth-config';
 import { readSession } from './auth-store';
 
 export function requestCookie(request: Request, name: string) {
@@ -10,7 +10,12 @@ export function requestCookie(request: Request, name: string) {
 
 export function signedInUser(request: Request) {
   if (authenticationMode() !== 'microsoft') return null;
-  return readSession(requestCookie(request, SESSION_COOKIE), microsoftConfig().policy);
+  const token = requestCookie(request, SESSION_COOKIE);
+  const employee = readSession(token, microsoftConfig().policy);
+  if (employee) return employee;
+  const guest = guestLoginConfig();
+  const session = guest ? readSession(token, guest.policy) : null;
+  return session?.kind === 'guest' ? session : null;
 }
 
 export function mutationFailure(request: Request): { status: number; error: string } | null {

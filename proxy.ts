@@ -4,7 +4,7 @@ import { appPath, basePath } from './lib/app-path.js';
 import { publicOrigin } from './lib/auth-config';
 
 const publicPaths = new Set([
-  '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/logout',
+  '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/guest', '/api/auth/logout',
   '/collective-waste-solutions.png', '/collective-icon.png', '/Circular Materials Logo - Colour (1).png',
 ]);
 

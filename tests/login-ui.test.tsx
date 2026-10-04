@@ -26,6 +26,7 @@ describe('Microsoft sign-in screen', () => {
     expect(screen.getByRole('link', { name: 'Sign in with Microsoft' }).getAttribute('href')).toBe('/cm-reporting/api/auth/microsoft/start');
     expect(screen.getByRole('img').getAttribute('data-src')).toBe('/cm-reporting/collective-waste-solutions.png');
     expect(screen.queryByRole('textbox')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Guest login' })).toBeNull();
   });
   it('explains missing setup without exposing credentials or reflecting arbitrary errors', async () => {
     vi.stubEnv('CM_ENTRA_CLIENT_SECRET', '');
@@ -38,6 +39,25 @@ describe('Microsoft sign-in screen', () => {
     render(await Login({ searchParams: Promise.resolve({ error: 'access' }) }));
     expect(screen.getByRole('alert').textContent).toContain('does not have access');
     expect(screen.getByRole('link', { name: 'Sign in with Microsoft' })).toBeDefined();
+  });
+  it('shows a password-protected guest form only during an active testing window', async () => {
+    vi.stubEnv('CM_GUEST_LOGIN_ENABLED', 'true');
+    vi.stubEnv('CM_GUEST_LOGIN_PASSWORD', 'unit-test-password-not-a-real-secret');
+    vi.stubEnv('CM_GUEST_LOGIN_EXPIRES_AT', new Date(Date.now() + 3600_000).toISOString());
+    render(await Login({ searchParams: Promise.resolve({ error: 'guest-signin' }) }));
+    const input = screen.getByLabelText('Guest password');
+    expect(input.getAttribute('type')).toBe('password');
+    expect(input.hasAttribute('required')).toBe(true);
+    const form = screen.getByRole('button', { name: 'Guest login' }).closest('form')!;
+    expect(form.getAttribute('action')).toBe('/cm-reporting/api/auth/guest');
+    expect(form.getAttribute('method')).toBe('post');
+    expect(screen.getByRole('alert').textContent).toContain('password was not accepted');
+    expect(document.body.innerHTML).not.toContain(process.env.CM_GUEST_LOGIN_PASSWORD);
+    expect(screen.getByRole('link', { name: 'Sign in with Microsoft' })).toBeDefined();
+    cleanup();
+    vi.stubEnv('CM_GUEST_LOGIN_EXPIRES_AT', '2020-01-01T00:00:00Z');
+    render(await Login({ searchParams: Promise.resolve({}) }));
+    expect(screen.queryByRole('button', { name: 'Guest login' })).toBeNull();
   });
 });
 

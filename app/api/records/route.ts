@@ -4,6 +4,7 @@ import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-inp
 import { validatePhotos } from '../../../lib/photo-validation';
 import { readReportBody } from '../../../lib/request-body';
 import { getLocationCatalogue } from '../../../lib/location-catalogue-store';
+import { complaintCategoryError } from '../../../lib/complaint-options';
 import {
   createReportRecord,
   listReportRecords,
@@ -53,6 +54,7 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
     routeNumber: textValue(body.routeNumber),
     serviceType: textValue(body.serviceType),
     category: textValue(body.category),
+    categoryOtherReason: textValue(body.category) === 'Other' ? textValue(body.categoryOtherReason) : '',
     priority: isPriority(priorityValue) ? priorityValue : 'Normal',
     status: isStatus(statusValue) ? statusValue : 'Open',
     contactMedium: textValue(body.contactMedium),
@@ -99,6 +101,8 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
   }
 
   if (input.recordType === 'complaint') {
+    const categoryError = complaintCategoryError(input.category, input.categoryOtherReason);
+    if (categoryError) throw new InputError(categoryError);
     const catalogue = getLocationCatalogue();
     if (!catalogue.available) throw new InputError('The community list is not available. Please contact the office.', 503);
     const community = catalogue.resolveCommunity(input.registeredCommunity);

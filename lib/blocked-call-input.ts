@@ -61,7 +61,7 @@ export function parseBlockedCallInput(payload: unknown, now = new Date()): Creat
   return {
     recordType: 'daily', occurredAt: edmontonTimestamp(now), ...approvedLocation,
     routeNumber: text(body, 'routeNumber', 80), serviceType: text(body, 'serviceType', 80),
-    category: 'Blocked call', priority: 'Normal', status: 'Open',
+    category: 'Blocked call', categoryOtherReason: '', priority: 'Normal', status: 'Open',
     employeeName, employeeTitle: '', contactMedium: '', customerName: '',
     customerAddress: '', customerContactInformation: '', issueDescription,
     rootCause: reasonLabel, correctiveAction: '', resolutionDescription: '',

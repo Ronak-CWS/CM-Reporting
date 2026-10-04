@@ -2,6 +2,7 @@ import { listReportRecords } from '../../../lib/reporting-store';
 import { accessResponse } from '../../../lib/request-access';
 import type { ReportRecord } from '../../../lib/report-types';
 import { exportDateRangeError } from '../../../lib/export-date-range';
+import { reportDescription } from '../../../lib/report-description';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,7 +47,7 @@ function exhibitSevenCsv(records: ReportRecord[]) {
     record.customerName,
     record.customerAddress,
     record.customerContactInformation,
-    record.issueDescription,
+    reportDescription(record),
     record.resolutionDescription,
     record.resolvedAt,
   ]);
@@ -94,7 +95,7 @@ function dailySummaryCsv(records: ReportRecord[]) {
     record.siteAddress,
     record.routeNumber,
     record.serviceType,
-    record.issueDescription,
+    reportDescription(record),
     record.rootCause,
     record.correctiveAction,
     record.resolutionDescription,

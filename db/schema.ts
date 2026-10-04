@@ -63,6 +63,11 @@ export const reportBlockages = sqliteTable('report_blockages', {
   requestHash: text('request_hash').notNull(),
 });
 
+export const reportComplaintDetails = sqliteTable('report_complaint_details', {
+  recordId: text('record_id').primaryKey().references(() => reportRecords.id),
+  categoryOtherReason: text('category_other_reason').notNull().default(''),
+});
+
 export const reportPhotos = sqliteTable('report_photos', {
   id: text('id').primaryKey(),
   recordId: text('record_id').notNull().references(() => reportRecords.id),

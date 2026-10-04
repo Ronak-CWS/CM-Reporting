@@ -63,6 +63,10 @@ async function initializeSchema(database: StorageDatabase) {
       'CREATE INDEX IF NOT EXISTS idx_report_records_community ON report_records(registered_community)',
     ),
     ...EVIDENCE_SCHEMA_SQL.map((sql) => database.prepare(sql)),
+    database.prepare(`CREATE TABLE IF NOT EXISTS report_complaint_details (
+      record_id TEXT PRIMARY KEY NOT NULL REFERENCES report_records(id),
+      category_other_reason TEXT NOT NULL DEFAULT ''
+    )`),
     database.prepare(EMAIL_OUTBOX_SQL),
   ]);
   await database.prepare('PRAGMA optimize').run();
@@ -95,6 +99,7 @@ function mapRow(row: DatabaseRow): ReportRecord {
     routeNumber: asText(row.route_number),
     serviceType: asText(row.service_type),
     category: asText(row.category),
+    categoryOtherReason: '',
     priority: ReportRecordPriority(asText(row.priority)),
     status: ReportRecordStatus(asText(row.status)),
     contactMedium: asText(row.contact_medium),
@@ -132,9 +137,10 @@ async function attachEvidence(records: ReportRecord[]) {
   for (let offset = 0; offset < records.length; offset += 80) {
     const ids = records.slice(offset, offset + 80).map((record) => record.id);
     const placeholders = ids.map(() => '?').join(',');
-    const [blockages, photos] = await database.batch<DatabaseRow>([
+    const [blockages, photos, complaints] = await database.batch<DatabaseRow>([
       database.prepare(`SELECT * FROM report_blockages WHERE record_id IN (${placeholders})`).bind(...ids),
       database.prepare(`SELECT * FROM report_photos WHERE record_id IN (${placeholders}) ORDER BY position`).bind(...ids),
+      database.prepare(`SELECT * FROM report_complaint_details WHERE record_id IN (${placeholders})`).bind(...ids),
     ]);
     for (const row of blockages.results) {
       const record = byId.get(asText(row.record_id));
@@ -146,6 +152,10 @@ async function attachEvidence(records: ReportRecord[]) {
       };
     }
     for (const row of photos.results) byId.get(asText(row.record_id))?.photos.push(mapPhoto(row));
+    for (const row of complaints.results) {
+      const record = byId.get(asText(row.record_id));
+      if (record) record.categoryOtherReason = asText(row.category_other_reason);
+    }
   }
   return records;
 }
@@ -166,7 +176,8 @@ async function submissionHash(input: CreateReportRecordInput, photos: ValidatedP
     photoHashes.push({ name: photo.fileName, hash: Array.from(new Uint8Array(hash)) });
   }
   // The receive time changes on a retry; the driver's content does not.
-  const encoded = new TextEncoder().encode(JSON.stringify({ ...input, occurredAt: '', photos: photoHashes }));
+  // Complaint-only fields must not change hashes for blocked calls saved before this field existed.
+  const encoded = new TextEncoder().encode(JSON.stringify({ ...input, categoryOtherReason: undefined, occurredAt: '', photos: photoHashes }));
   const digest = await crypto.subtle.digest('SHA-256', encoded);
   return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
 }
@@ -276,6 +287,11 @@ export async function createReportRecord(input: CreateReportRecordInput, photos:
       `INSERT INTO report_blockages (record_id, scope, reason_code, reason_label, street_from, street_to, notes, vehicle_plates, request_hash)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     ).bind(id, b.scope, b.reasonCode, b.reasonLabel, b.streetFrom, b.streetTo, b.notes, b.vehiclePlates, requestHash));
+  }
+  if (input.recordType === 'complaint') {
+    statements.push(database.prepare(
+      'INSERT INTO report_complaint_details (record_id, category_other_reason) VALUES (?, ?)',
+    ).bind(id, input.categoryOtherReason));
   }
   // Queue email in the same transaction as the report. No SMTP calls occur in submission requests.
   statements.push(...reportEmailStatements(database, input, id, referenceNumber, photos.length));

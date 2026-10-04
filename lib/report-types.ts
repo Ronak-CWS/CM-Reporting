@@ -35,6 +35,7 @@ export interface ReportRecord {
   routeNumber: string;
   serviceType: string;
   category: string;
+  categoryOtherReason: string;
   priority: RecordPriority;
   status: RecordStatus;
   contactMedium: string;

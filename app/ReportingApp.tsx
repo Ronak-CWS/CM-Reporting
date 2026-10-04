@@ -10,6 +10,7 @@ import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import { exportDateRangeError } from '../lib/export-date-range';
 import { blockageScopeLabel } from '../lib/blocked-call-options';
+import { COMPLAINT_CATEGORIES, COMPLAINT_OTHER_REASON_LIMIT, complaintCategoryError } from '../lib/complaint-options';
 import {
   type FormEvent,
   useCallback,
@@ -27,16 +28,6 @@ import type {
 
 type View = 'dashboard' | 'daily' | 'complaints' | 'exports';
 type FormMode = RecordType | null;
-
-const COMPLAINT_CATEGORIES = [
-  'Missed collection',
-  'Container issue',
-  'Property damage',
-  'Service quality',
-  'Contamination or tag',
-  'Driver conduct',
-  'Other',
-];
 
 const CONTACT_MEDIA = [
   'Phone call',
@@ -653,6 +644,8 @@ function ComplaintFormModal({
   const [error, setError] = useState('');
   const [community, setCommunity] = useState('');
   const [communitySelected, setCommunitySelected] = useState(false);
+  const [category, setCategory] = useState('');
+  const [categoryOtherReason, setCategoryOtherReason] = useState('');
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow;
@@ -674,6 +667,11 @@ function ComplaintFormModal({
       setError('Choose a registered community from the service list.');
       return;
     }
+    const categoryError = complaintCategoryError(category, categoryOtherReason);
+    if (categoryError) {
+      setError(categoryError);
+      return;
+    }
     setSaving(true);
     setError('');
     const values = Object.fromEntries(new FormData(event.currentTarget).entries());
@@ -681,7 +679,7 @@ function ComplaintFormModal({
     const payload: CreateReportRecordInput = {
       recordType: 'complaint', occurredAt: value('occurredAt'),
       registeredCommunity: community, siteAddress: '', routeNumber: '', serviceType: '',
-      category: value('category'),
+      category, categoryOtherReason: category === 'Other' ? categoryOtherReason.trim() : '',
       priority: (value('priority') || 'Normal') as CreateReportRecordInput['priority'],
       status: (value('status') || 'Open') as RecordStatus,
       contactMedium: value('contactMedium'), employeeName: value('employeeName'),
@@ -725,7 +723,10 @@ function ComplaintFormModal({
               </div>
               <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
               <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
-              <Field label="Inquiry or complaint category" name="category" required><select id="category" name="category" defaultValue="" required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              <Field label="Inquiry or complaint category" name="category" required><select id="category" name="category" value={category} onChange={(event) => { setCategory(event.target.value); setCategoryOtherReason(''); }} required><option value="" disabled>Choose category</option>{COMPLAINT_CATEGORIES.map((option) => <option key={option}>{option}</option>)}</select></Field>
+              {category === 'Other' ? <Field label="Explain the other reason" name="categoryOtherReason" required hint={`Explain why this inquiry or complaint does not fit the listed categories. Maximum ${COMPLAINT_OTHER_REASON_LIMIT} characters.`}>
+                <textarea id="categoryOtherReason" name="categoryOtherReason" rows={3} required maxLength={COMPLAINT_OTHER_REASON_LIMIT} value={categoryOtherReason} onChange={(event) => setCategoryOtherReason(event.target.value)} />
+              </Field> : null}
             </div>
           </fieldset>
           <fieldset disabled={saving}>
@@ -853,6 +854,7 @@ function RecordDetails({
             <dl className="detail-grid">
               <DetailItem label="Registered community" value={record.registeredCommunity} />
               <DetailItem label="Category" value={record.category} />
+              <DetailItem label="Other category reason" value={record.categoryOtherReason} />
               <DetailItem label="Blockage" value={record.blockage && blockageScopeLabel(record.blockage.scope)} />
               <DetailItem label="Blocked-call reason" value={record.blockage?.reasonLabel} />
               <DetailItem label="Street section from" value={record.blockage?.streetFrom} />

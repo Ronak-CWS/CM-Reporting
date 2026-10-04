@@ -76,3 +76,44 @@ describe('complaint community selection', () => {
     expect(screen.queryByRole('dialog', { name: 'Log an inquiry or complaint' })).toBeNull();
   });
 });
+
+describe('complaint Other explanation', () => {
+  it('requires an explanation and submits its trimmed value', async () => {
+    const user = await openForm();
+    fillRequiredDetails();
+    await selectCommunity(user);
+    await user.selectOptions(screen.getByLabelText(/^Inquiry or complaint category/), 'Other');
+    const reason = screen.getByLabelText(/^Explain the other reason/) as HTMLTextAreaElement;
+    expect(reason.required).toBe(true);
+    expect(reason.maxLength).toBe(500);
+    await user.click(screen.getByRole('button', { name: 'Save complaint' }));
+    expect(submitted).toHaveLength(0);
+    fireEvent.change(reason, { target: { value: '   ' } });
+    await user.click(screen.getByRole('button', { name: 'Save complaint' }));
+    expect(screen.getByRole('alert').textContent).toContain('Explain the reason for choosing Other.');
+    expect(submitted).toHaveLength(0);
+    fireEvent.change(reason, { target: { value: '  Community information request  ' } });
+    await user.click(screen.getByRole('button', { name: 'Save complaint' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]).toMatchObject({ category: 'Other', categoryOtherReason: 'Community information request' });
+    await user.click(screen.getByRole('button', { name: /^CM-CMP-TEST/ }));
+    expect(screen.getByText('Other category reason')).toBeDefined();
+    expect(screen.getByText('Community information request')).toBeDefined();
+  });
+  it('clears the explanation when switching away from Other', async () => {
+    const user = await openForm();
+    fillRequiredDetails();
+    await selectCommunity(user);
+    const category = screen.getByLabelText(/^Inquiry or complaint category/);
+    await user.selectOptions(category, 'Other');
+    fireEvent.change(screen.getByLabelText(/^Explain the other reason/), { target: { value: 'Not applicable anymore' } });
+    await user.selectOptions(category, 'Missed collection');
+    expect(screen.queryByLabelText(/^Explain the other reason/)).toBeNull();
+    await user.selectOptions(category, 'Other');
+    expect((screen.getByLabelText(/^Explain the other reason/) as HTMLTextAreaElement).value).toBe('');
+    await user.selectOptions(category, 'Missed collection');
+    await user.click(screen.getByRole('button', { name: 'Save complaint' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]).toMatchObject({ category: 'Missed collection', categoryOtherReason: '' });
+  });
+});

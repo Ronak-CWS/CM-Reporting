@@ -4,6 +4,7 @@ import { publicOrigin } from './auth-config';
 import { reportEmailRecipients, reportEmailsEnabled } from './smtp-config.js';
 import type { CreateReportRecordInput } from './report-types';
 import type { StorageDatabase } from './local-storage';
+import { reportDescription } from './report-description';
 
 export function reportEmailStatements(database: StorageDatabase, input: CreateReportRecordInput, id: string, reference: string, photoCount: number) {
   if (!reportEmailsEnabled()) return [];
@@ -14,7 +15,7 @@ export function reportEmailStatements(database: StorageDatabase, input: CreateRe
     `Location: ${input.siteAddress || input.customerAddress}`,
     `Reported by: ${input.employeeName}`, `Occurred at: ${input.occurredAt} (America/Edmonton)`,
     `Category: ${input.category}`, `Priority: ${input.priority}`, `Status: ${input.status}`, '',
-    'Description:', input.issueDescription, '',
+    'Description:', reportDescription(input), '',
     `Photo evidence: ${photoCount} photo(s), available after signing in.`,
     `Open CM Reporting and find reference ${reference}: ${publicOrigin()}${appPath('/')}`,
   ].join('\n');

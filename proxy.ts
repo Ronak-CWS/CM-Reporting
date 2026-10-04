@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { accessFailure } from './lib/request-access';
 import { appPath, basePath } from './lib/app-path.js';
+import { publicOrigin } from './lib/auth-config';
 
 const publicPaths = new Set([
   '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/logout',
@@ -16,10 +17,17 @@ export function proxy(request: NextRequest) {
   const failure = publicPaths.has(publicPath) ? null : accessFailure(request);
   if (failure) {
     if ([401, 503].includes(failure.status) && !pathname.startsWith('/api/') && ['GET', 'HEAD'].includes(request.method)) {
-      // A relative Location stays on the current site even when startup configuration is missing.
-      const response = new NextResponse(null, { status: 303, headers: { Location: appPath('/login') } });
-      response.headers.set('Cache-Control', 'private, no-store');
-      return response;
+      try {
+        // Next's proxy adapter requires an absolute URL. Use the configured
+        // public origin because IIS can forward a loopback or untrusted Host.
+        const response = NextResponse.redirect(new URL(appPath('/login'), publicOrigin()), 303);
+        response.headers.set('Cache-Control', 'private, no-store');
+        return response;
+      } catch {
+        return NextResponse.json({ error: 'Reporting sign-in is not available. Please contact the office.' }, {
+          status: 503, headers: { 'Cache-Control': 'private, no-store' },
+        });
+      }
     }
     return NextResponse.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } });
   }

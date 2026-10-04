@@ -117,6 +117,8 @@ beforeEach(() => {
 describe('Microsoft authorization code login', () => {
   it('uses minimal scopes, PKCE, nonce, state and a path-scoped HttpOnly cookie', async () => {
     const { response, url } = await begin();
+    expect(url.origin).toBe('https://login.microsoftonline.com');
+    expect(url.pathname).toBe(`/${tenantId}/oauth2/v2.0/authorize`);
     expect(url.searchParams.get('scope')).toBe('openid profile email');
     expect(url.searchParams.get('response_type')).toBe('code');
     expect(url.searchParams.get('response_mode')).toBe('query');
@@ -264,7 +266,7 @@ describe('local sessions and protected reporting routes', () => {
     for (const route of ['/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/collective-waste-solutions.png', '/Circular%20Materials%20Logo%20-%20Colour%20(1).png']) {
       expect(proxy(new NextRequest(`${base}${route}`)).headers.get('x-middleware-next')).toBe('1');
     }
-    expect(proxy(new NextRequest(`${base}/`)).headers.get('location')).toBe('/cm-reporting/login');
+    expect(proxy(new NextRequest(`${base}/`)).headers.get('location')).toBe(`${base}/login`);
     expect(proxy(new NextRequest(`${base}/api/records`)).status).toBe(401);
   });
 

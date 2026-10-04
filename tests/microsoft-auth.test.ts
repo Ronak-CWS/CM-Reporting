@@ -122,6 +122,7 @@ describe('Microsoft authorization code login', () => {
     expect(url.searchParams.get('scope')).toBe('openid profile email');
     expect(url.searchParams.get('response_type')).toBe('code');
     expect(url.searchParams.get('response_mode')).toBe('query');
+    expect(response.headers.get('referrer-policy')).toBe('no-referrer');
     expect(url.searchParams.get('code_challenge_method')).toBe('S256');
     expect(url.searchParams.get('redirect_uri')).toBe(`${base}/api/auth/microsoft/callback`);
     expect(url.searchParams.get('state')).toHaveLength(43);

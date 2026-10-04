@@ -76,4 +76,17 @@ describe('sign-in redirects through the Next request adapter', () => {
     expect(api.status).toBe(401);
     expect(api.headers.get('location')).toBeNull();
   });
+
+  it.each(['/login', '/'])('preserves the origin on native forms served from %s', async (pathname) => {
+    vi.stubEnv('CM_AUTH_MODE', 'proxy');
+    const key = 'test-only-proxy-key-at-least-32-characters';
+    vi.stubEnv('CM_TRUSTED_PROXY_KEY', key);
+    const response = await handle(`http://127.0.0.1:3013/cm-reporting${pathname}`, 'GET', {
+      'x-cm-proxy-key': key, 'x-cm-user': 'Test employee',
+    });
+    expect(response.headers.get('x-middleware-next')).toBe('1');
+    // Fetch's Origin-header algorithm turns a native POST's origin into null
+    // under no-referrer. Both guest login and dashboard sign-out are forms.
+    expect(response.headers.get('referrer-policy')).toBe('same-origin');
+  });
 });

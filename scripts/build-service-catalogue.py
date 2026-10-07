@@ -65,6 +65,15 @@ def digest(path):
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
+# Keep the spelling already used by the reviewed routes and reporting catalogue.
+C9_COMMUNITY_NAMES = {'Beaver Mine': 'Beaver Mines'}
+
+
+def c9_community(value):
+    name = clean(value)
+    return C9_COMMUNITY_NAMES.get(name, name)
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-root', type=Path, required=True)
@@ -131,12 +140,14 @@ def main():
     source_keys = set()
     source_identities = Counter()
     source_counts = {}
+    source_communities = set()
     source_by_row = {}
     for sheet, rows in xlsx_rows(paths['c9_source']):
         if sheet == 'Address Collection SF Household': continue
         selected = [(number, values) for number, values in rows if number > 4 and clean(values.get('C')) and clean(values.get('D'))]
         source_counts[sheet] = len(selected)
         for number, values in selected:
+            source_communities.add(c9_community(values.get('D')))
             source_by_row[(sheet, number)] = values
             unit, civic, street = unit_text(values.get('A')), clean(values.get('B')), clean(values.get('C'))
             # The original Crowsnest sheet places civic in A and splits street across B/C.
@@ -170,7 +181,13 @@ def main():
     placeholder = source_by_row[('Town of Magrath', 661)]
     assert clean(placeholder.get('B')) == clean(placeholder.get('C')) == '123'
 
-    customer_rows = {number for _, rows in xlsx_rows(paths['wood_buffalo_source']) for number, row in rows if number > 1 and any(clean(row.get(column)) for column in ['A', 'B', 'C'])}
+    customer_rows = set()
+    customer_communities = set()
+    for _, rows in xlsx_rows(paths['wood_buffalo_source']):
+        for number, row in rows:
+            if number > 1 and any(clean(row.get(column)) for column in ['A', 'B', 'C']):
+                customer_rows.add(number)
+                customer_communities.add(clean(row.get('E')))
     linked_customer_rows = set()
     for row in wb:
         for ref in json.loads(row['source_references']):
@@ -180,24 +197,52 @@ def main():
     localities = {'FORT MCMURRAY': 'Fort McMurray', 'FORT MCKAY': 'Fort McKay', 'SAPRAE CREEK ESTATES': 'Saprae Creek Estates', 'GREGOIRE LAKE ESTATES': 'Gregoire Lake Estates', 'ANZAC': 'Anzac', 'DRAPER': 'Draper', 'CONKLIN': 'Conklin', 'JANVIER': 'Janvier'}
     entries = []
     provenance = defaultdict(list)
+    grouped_communities = defaultdict(set)
     for dataset, rows in [('C9', c9), ('Wood Buffalo', wb)]:
         for row in rows:
             address = clean(row['full_address'])
             unit = unit_text(row['unit'])
             if dataset == 'C9' and unit and not re.search(r'\bUnit\s+' + re.escape(unit) + r'\b', address, re.I):
                 address = f'Unit {unit}, {address}'
-            entry = {'community': clean(row['service_community']) if dataset == 'C9' else localities[row['locality']], 'address': address, 'street': clean(row['street_name'] if dataset == 'C9' else row['street'])}
-            assert all(entry.values()), (dataset, row['service_id'], entry)
-            identity = (entry['community'].casefold(), entry['address'].casefold())
-            provenance[identity].append({'dataset': dataset, 'serviceId': row['service_id']})
-            entries.append(entry)
+            communities = [clean(row['service_community'])] if dataset == 'C9' else [localities[row['locality']]]
+            if dataset == 'C9':
+                # Routing groups such as Crowsnest Pass must not hide the town
+                # recorded in the source workbook. Keep the existing group too.
+                # Use workbook_community, not routing subarea, for these labels.
+                community = c9_community(row['workbook_community'])
+                assert community, (row['service_id'], 'Missing workbook community')
+                if community not in communities:
+                    grouped_communities[communities[0]].add(community)
+                    communities.append(community)
+            for community in communities:
+                entry = {'community': community, 'address': address, 'street': clean(row['street_name'] if dataset == 'C9' else row['street'])}
+                assert all(entry.values()), (dataset, row['service_id'], entry)
+                identity = (entry['community'].casefold(), entry['address'].casefold())
+                provenance[identity].append({'dataset': dataset, 'serviceId': row['service_id']})
+                entries.append(entry)
     unique = { (row['community'].casefold(), row['address'].casefold()): row for row in entries }
     output = sorted(unique.values(), key=lambda row: (row['community'].casefold(), row['address'].casefold()))
+    # Independently reconcile names from the original workbooks, including the
+    # service-address add-ons and approved rural Wood Buffalo route localities.
+    c9_expected = source_communities | set(addon_checks)
+    wb_source_expected = {localities[name] for name in customer_communities}
+    wb_route_expected = {localities[row['locality']] for row in wb}
+    expected_communities = c9_expected | wb_source_expected | wb_route_expected
+    actual_communities = {row['community'] for row in output}
+    missing_communities = sorted(expected_communities - actual_communities)
     report = {
         'sourceSnapshot': '2026-09-24',
         'sources': {name: {'path': path.relative_to(root).as_posix(), 'sha256': before[name]} for name, path in paths.items()},
         'sourceRows': {'C9': len(c9), 'Wood Buffalo': len(wb)},
         'catalogueAddresses': len(output), 'communities': dict(sorted(Counter(row['community'] for row in output).items())),
+        'communityCoverage': {
+            'c9SourceCommunities': sorted(c9_expected),
+            'c9SourceNameNormalizations': C9_COMMUNITY_NAMES,
+            'woodBuffaloSourceCommunities': sorted(wb_source_expected),
+            'woodBuffaloRouteCommunities': sorted(wb_route_expected),
+            'retainedServiceGroups': {name: sorted(values) for name, values in sorted(grouped_communities.items())},
+            'missingSourceCommunities': missing_communities,
+        },
         'c9SourceRowsBySheet': source_counts, 'c9UnreconciledRows': missing_source,
         'c9ReviewedWorkbookMatchesAllServices': True, 'c9ReviewedAddressCorrections': reviewed_differences,
         'c9ExcludedTemplateRow': {'sheet': 'Town of Magrath', 'row': 661, 'reason': '123 123 placeholder absent from approved final routes'},
@@ -213,6 +258,7 @@ def main():
     print(json.dumps({'sourceRows': report['sourceRows'], 'catalogueAddresses': len(output), 'communities': len(report['communities']), 'c9UnreconciledCount': len(missing_source), 'c9UnreconciledSamples': missing_source[:5], 'woodBuffaloUnlinkedCount': len(missing_customers), 'brooksAdditionsIncluded': len(addition_ids), 'parklandUnitsIncluded': len(expected_units)}, indent=2))
     assert not missing_source, 'Reconcile C9 source differences before importing.'
     assert not missing_customers, 'Reconcile Wood Buffalo source lineages before importing.'
+    assert not missing_communities, f'Source communities missing from catalogue: {missing_communities}'
     temporary = args.output.with_suffix('.json.tmp')
     temporary.write_text(json.dumps(output, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     temporary.replace(args.output)

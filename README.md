@@ -37,9 +37,11 @@ The import reconciles the latest reviewed local snapshots as of **24 September 2
 | --- | ---: | --- |
 | C9 | 17,956 | Parkland 32-unit expansion; all 386 Brooks additions; Enchant and Hays Service Address sheets |
 | Wood Buffalo | 19,458 | All 19,273 Customers.xlsx source rows accounted for, plus approved rural services |
-| Combined | 37,414 | 37,267 distinct address choices across 31 communities |
+| Combined | 37,414 | 39,676 community/address choices across 35 community options |
 
 Identical choices within a community are collapsed; distinct units are retained. C9 matches the authoritative final workbook table rows, excluding leftover review cells outside the tables and the original Magrath `123 123` template row. Reviewed corrections and source hashes are recorded in the audit. No source workbooks or geocodes are changed.
+
+Blairmore, Coleman, Frank and Hillcrest use their original workbook community names and matching addresses. The existing Crowsnest Pass group remains available, so 2,409 address choices are also offered under the individual towns. Routing subareas do not override workbook community names. The importer checks every source community against the generated list, including Enchant/Hays service-address additions and Wood Buffalo rural localities; the only spelling normalization is Beaver Mine to Beaver Mines.
 
 Generated private files `data/service-locations.json` and `data/service-locations-audit.json` are present locally and ignored by Git. Transfer them separately when installing the application. Reproduce the snapshot using Python's standard library:
 

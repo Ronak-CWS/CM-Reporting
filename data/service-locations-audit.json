@@ -42,14 +42,16 @@
     "C9": 17956,
     "Wood Buffalo": 19458
   },
-  "catalogueAddresses": 37267,
+  "catalogueAddresses": 39676,
   "communities": {
     "Anzac": 238,
     "Beaver Mines": 64,
     "Bellevue": 519,
+    "Blairmore": 849,
     "Brooks": 4046,
     "Burdett": 132,
     "Cardston": 1286,
+    "Coleman": 1154,
     "Conklin": 108,
     "Coutts": 137,
     "Crowsnest Pass": 2409,
@@ -59,10 +61,12 @@
     "Fort Macleod": 1272,
     "Fort McKay": 25,
     "Fort McMurray": 18570,
+    "Frank": 104,
     "Granum": 218,
     "Grassy Lake": 226,
     "Gregoire Lake Estates": 88,
     "Hays": 72,
+    "Hillcrest": 302,
     "Janvier": 57,
     "Lundbreck": 154,
     "Magrath": 829,
@@ -75,6 +79,65 @@
     "Vauxhall": 435,
     "Warner": 208,
     "Winnifred": 23
+  },
+  "communityCoverage": {
+    "c9SourceCommunities": [
+      "Beaver Mines",
+      "Bellevue",
+      "Blairmore",
+      "Brooks",
+      "Burdett",
+      "Cardston",
+      "Coleman",
+      "Coutts",
+      "Enchant",
+      "Foremost",
+      "Fort Macleod",
+      "Frank",
+      "Granum",
+      "Grassy Lake",
+      "Hays",
+      "Hillcrest",
+      "Lundbreck",
+      "Magrath",
+      "Milk River",
+      "Pincher Creek",
+      "Raymond",
+      "Redcliff",
+      "Tilley",
+      "Vauxhall",
+      "Warner",
+      "Winnifred"
+    ],
+    "c9SourceNameNormalizations": {
+      "Beaver Mine": "Beaver Mines"
+    },
+    "woodBuffaloSourceCommunities": [
+      "Anzac",
+      "Draper",
+      "Fort McMurray",
+      "Gregoire Lake Estates",
+      "Saprae Creek Estates"
+    ],
+    "woodBuffaloRouteCommunities": [
+      "Anzac",
+      "Conklin",
+      "Draper",
+      "Fort McKay",
+      "Fort McMurray",
+      "Gregoire Lake Estates",
+      "Janvier",
+      "Saprae Creek Estates"
+    ],
+    "retainedServiceGroups": {
+      "Crowsnest Pass": [
+        "Blairmore",
+        "Coleman",
+        "Frank",
+        "Hillcrest"
+      ]
+    },
+    "missingSourceCommunities": []
   },
   "c9SourceRowsBySheet": {
     "Hamlet of Burdett & Winnifred": 159,
@@ -670,7 +733,171 @@
       ]
     },
     {
+      "community": "Coleman",
+      "address": "6101 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006889"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006888"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006887"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006886"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006885"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006884"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006883"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006882"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006881"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006880"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006879"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006878"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006877"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006876"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006875"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006874"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006873"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006872"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006871"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006870"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006869"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006868"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006867"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006866"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006865"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006864"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006863"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006862"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006861"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006860"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006859"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006858"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006890"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
+      "address": "5302 19 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006794"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006793"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006792"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006791"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006790"
+        }
+      ]
+    },
+    {
+      "community": "Coleman",
       "address": "5302 19 Ave",
       "services": [
         {
@@ -752,6 +979,20 @@
       ]
     },
     {
+      "community": "Coleman",
+      "address": "2817 79 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007365"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007364"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
       "address": "8717 24 Ave",
       "services": [
@@ -766,7 +1007,35 @@
       ]
     },
     {
+      "community": "Coleman",
+      "address": "8717 24 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007162"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007161"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
+      "address": "2111 89 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007501"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007502"
+        }
+      ]
+    },
+    {
+      "community": "Coleman",
       "address": "2111 89 St",
       "services": [
         {
@@ -802,7 +1071,43 @@
       ]
     },
     {
+      "community": "Blairmore",
+      "address": "2102 131 St",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005764"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005762"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005765"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_005763"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
+      "address": "12316 21 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006307"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006306"
+        }
+      ]
+    },
+    {
+      "community": "Blairmore",
       "address": "12316 21 Ave",
       "services": [
         {
@@ -830,6 +1135,20 @@
       ]
     },
     {
+      "community": "Blairmore",
+      "address": "12313 21 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006304"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006305"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
       "address": "11333 20 Ave",
       "services": [
@@ -844,7 +1163,43 @@
       ]
     },
     {
+      "community": "Blairmore",
+      "address": "11333 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006184"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006183"
+        }
+      ]
+    },
+    {
       "community": "Crowsnest Pass",
+      "address": "12331 20 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006229"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006226"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006228"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006227"
+        }
+      ]
+    },
+    {
+      "community": "Blairmore",
       "address": "12331 20 Ave",
       "services": [
         {
@@ -1000,6 +1355,28 @@
       ]
     },
     {
+      "community": "Hillcrest",
+      "address": "22606 7 Ave",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007983"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007984"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007981"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_007982"
+        }
+      ]
+    },
+    {
       "community": "Enchant",
       "address": "116 Retzke Street",
       "services": [
@@ -1131,6 +1508,20 @@
     },
     {
       "community": "Crowsnest Pass",
+      "address": "102 Southmore Dr",
+      "services": [
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006431"
+        },
+        {
+          "dataset": "C9",
+          "serviceId": "REAL_CROWSNEST_PASS_006430"
+        }
+      ]
+    },
+    {
+      "community": "Blairmore",
       "address": "102 Southmore Dr",
       "services": [
         {

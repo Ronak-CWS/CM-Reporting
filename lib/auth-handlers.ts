@@ -44,6 +44,11 @@ export async function microsoftCallback(request: Request) {
     response = redirect(appPath('/'));
     setCookie(response, SESSION_COOKIE, createSession(user, settings.policy), SESSION_SECONDS);
   } catch (error) {
+    if (error instanceof AccessDenied) {
+      // Only our fixed access-check codes and configured role are safe to log.
+      // Never serialize the error itself or any provider/request/token details.
+      console.warn(`[CMReporting SSO] ${JSON.stringify({ event: 'access_denied', reasons: error.reasons, requiredRole: error.requiredRole })}`);
+    }
     response = redirect(appPath(`/login?error=${error instanceof AccessDenied ? 'access' : 'signin'}`));
   }
   setCookie(response, FLOW_COOKIE, '', 0);

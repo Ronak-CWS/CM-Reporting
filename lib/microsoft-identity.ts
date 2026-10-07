@@ -32,20 +32,37 @@ export async function beginMicrosoftLogin() {
   return { flow, location: location.href };
 }
 
-export class AccessDenied extends Error {}
+type AccessDenialReason =
+  | 'tenant_mismatch' | 'object_id_invalid' | 'subject_invalid'
+  | 'member_claim_missing' | 'guest_account' | 'member_claim_invalid'
+  | 'app_role_missing' | 'signin_configuration_changed';
+
+export class AccessDenied extends Error {
+  constructor(readonly reasons: AccessDenialReason[], readonly requiredRole: string) {
+    super('Microsoft account does not meet CM Reporting access requirements.');
+    this.name = 'AccessDenied';
+  }
+}
 
 // Only call this with claims returned by the validating OIDC code exchange below.
 export function employeeFromClaims(claims: Record<string, unknown>): SignedInUser {
   const { tenantId, requiredRole } = microsoftConfig();
-  if (claims.tid !== tenantId || typeof claims.oid !== 'string' || !GUID.test(claims.oid) || typeof claims.sub !== 'string' || !claims.sub) {
-    throw new AccessDenied('Invalid employee identity.');
-  }
+  const reasons: AccessDenialReason[] = [];
+  const objectId = typeof claims.oid === 'string' ? claims.oid : '';
+  if (claims.tid !== tenantId) reasons.push('tenant_mismatch');
+  if (!GUID.test(objectId)) reasons.push('object_id_invalid');
+  if (typeof claims.sub !== 'string' || !claims.sub) reasons.push('subject_invalid');
   // acct is an Entra optional ID-token claim: 0 = member, 1 = guest. Missing claims fail closed.
-  if (claims.acct !== 0 && claims.acct !== '0') throw new AccessDenied('A tenant member account is required.');
-  if (!Array.isArray(claims.roles) || !claims.roles.includes(requiredRole)) throw new AccessDenied('Application access has not been assigned.');
+  if (claims.acct === undefined) reasons.push('member_claim_missing');
+  else if (claims.acct === 1 || claims.acct === '1') reasons.push('guest_account');
+  else if (claims.acct !== 0 && claims.acct !== '0') reasons.push('member_claim_invalid');
+  if (!Array.isArray(claims.roles) || !claims.roles.includes(requiredRole)) reasons.push('app_role_missing');
+  // Report every failed check together, using fixed reason codes only. Do not
+  // retain claims, tokens, names, emails or identifiers in diagnostic errors.
+  if (reasons.length) throw new AccessDenied(reasons, requiredRole);
   const displayText = (value: unknown) => typeof value === 'string' ? value.slice(0, 200) : '';
   return {
-    tenantId, objectId: claims.oid.toLowerCase(), name: displayText(claims.name) || 'Collective Waste employee',
+    tenantId, objectId: objectId.toLowerCase(), name: displayText(claims.name) || 'Collective Waste employee',
     // This is display-only; access decisions and durable identity never use email/UPN.
     username: displayText(claims.preferred_username) || displayText(claims.email),
   };
@@ -53,7 +70,9 @@ export function employeeFromClaims(claims: Record<string, unknown>): SignedInUse
 
 export async function completeMicrosoftLogin(search: string, flow: LoginFlow) {
   const settings = microsoftConfig();
-  if (flow.policy !== settings.policy || flow.redirectUri !== settings.redirectUri) throw new AccessDenied('Sign-in configuration changed.');
+  if (flow.policy !== settings.policy || flow.redirectUri !== settings.redirectUri) {
+    throw new AccessDenied(['signin_configuration_changed'], settings.requiredRole);
+  }
   // Construct the callback from configuration, never from Host or forwarded headers.
   const callback = new URL(settings.redirectUri);
   callback.search = search;

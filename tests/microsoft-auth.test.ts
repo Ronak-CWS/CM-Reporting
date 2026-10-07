@@ -31,6 +31,7 @@ let claimsOverride: Record<string, unknown> = {};
 let badSignature = false;
 let fetchMock: ReturnType<typeof vi.fn>;
 let tokenRequests: URLSearchParams[];
+let accessLog: ReturnType<typeof vi.fn>;
 
 function jwt() {
   const now = Math.floor(Date.now() / 1000);
@@ -74,8 +75,10 @@ afterAll(async () => {
   // The target is the exact directory returned by mkdtemp, never a computed parent.
   if (directory) await rm(directory, { recursive: true, force: true });
 });
-afterEach(() => { closeAuthStore(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
+afterEach(() => { closeAuthStore(); vi.useRealTimers(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); vi.restoreAllMocks(); });
 beforeEach(() => {
+  accessLog = vi.fn();
+  vi.spyOn(console, 'warn').mockImplementation(accessLog);
   vi.stubEnv('NODE_ENV', 'production');
   vi.stubEnv('CM_AUTH_MODE', 'microsoft');
   vi.stubEnv('CM_PUBLIC_ORIGIN', origin);
@@ -142,6 +145,7 @@ describe('Microsoft authorization code login', () => {
     closeAuthStore(); // Emulates reopening the SQLite store after a process restart.
     expect(readSession(result.token, microsoftConfig().policy)).toEqual({ tenantId, objectId, name: 'Test Employee', username: 'employee@example.invalid' });
     expect(accessFailure(request('/api/records', result.sessionCookie))).toBeNull();
+    expect(accessLog).not.toHaveBeenCalled();
     const replay = await microsoftCallback(request(result.callback, result.cookie));
     expect(replay.headers.get('location')).toBe('/cm-reporting/login?error=signin');
     expect(tokenRequests).toHaveLength(1);
@@ -160,6 +164,7 @@ describe('Microsoft authorization code login', () => {
     const response = await microsoftCallback(request(flow.callback, flow.cookie));
     expect(response.headers.get('location')).toBe('/cm-reporting/login?error=signin');
     expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(accessLog).not.toHaveBeenCalled();
   });
 
   it('rejects a forged ID-token signature', async () => {
@@ -168,21 +173,48 @@ describe('Microsoft authorization code login', () => {
     const response = await microsoftCallback(request(flow.callback, flow.cookie));
     expect(response.headers.get('location')).toBe('/cm-reporting/login?error=signin');
     expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(accessLog).not.toHaveBeenCalled();
   });
 
   it.each([
-    ['another tenant', { tid: '99999999-2222-3333-4444-555555555555' }],
-    ['a guest account', { acct: 1 }],
-    ['a missing membership claim', { acct: undefined }],
-    ['an unassigned account', { roles: [] }],
-    ['an unrelated application role', { roles: ['ReportsDashboard.Access'] }],
-    ['a missing object ID', { oid: undefined }],
-  ])('denies %s even with a valid signed Microsoft token', async (_label, override) => {
+    ['another tenant', { tid: '99999999-2222-3333-4444-555555555555' }, ['tenant_mismatch']],
+    ['a guest account', { acct: 1 }, ['guest_account']],
+    ['a string guest claim', { acct: '1' }, ['guest_account']],
+    ['a missing membership claim', { acct: undefined }, ['member_claim_missing']],
+    ['an invalid membership claim', { acct: 'unexpected' }, ['member_claim_invalid']],
+    ['an unassigned account', { roles: [] }, ['app_role_missing']],
+    ['missing roles', { roles: undefined }, ['app_role_missing']],
+    ['an unrelated application role', { roles: ['ReportsDashboard.Access'] }, ['app_role_missing']],
+    ['a missing object ID', { oid: undefined }, ['object_id_invalid']],
+    ['both missing member and role claims', { acct: undefined, roles: undefined }, ['member_claim_missing', 'app_role_missing']],
+  ])('denies %s and logs only fixed diagnostic codes', async (_label, override, reasons) => {
     const flow = await begin();
     claimsOverride = override;
     const response = await microsoftCallback(request(flow.callback, flow.cookie));
     expect(response.headers.get('location')).toBe('/cm-reporting/login?error=access');
     expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(accessLog).toHaveBeenCalledTimes(1);
+    expect(accessLog).toHaveBeenCalledWith(`[CMReporting SSO] ${JSON.stringify({ event: 'access_denied', reasons, requiredRole: 'CMReporting.Access' })}`);
+    // Exact diagnostic shape above excludes all token and identity values.
+    expect(JSON.stringify(accessLog.mock.calls)).not.toContain('test-code');
+    expect(JSON.stringify(accessLog.mock.calls)).not.toContain('employee@example.invalid');
+    expect(JSON.stringify(accessLog.mock.calls)).not.toContain(objectId);
+  });
+
+  it('accepts a string member claim without emitting denial diagnostics', async () => {
+    claimsOverride = { acct: '0' };
+    await login();
+    expect(accessLog).not.toHaveBeenCalled();
+  });
+
+  it('distinguishes changed sign-in configuration before exchanging a code', async () => {
+    const flow = await begin();
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', 'CMReporting.OtherAccess');
+    const response = await microsoftCallback(request(flow.callback, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/login?error=access');
+    expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(tokenRequests).toHaveLength(0);
+    expect(accessLog).toHaveBeenCalledWith('[CMReporting SSO] {"event":"access_denied","reasons":["signin_configuration_changed"],"requiredRole":"CMReporting.OtherAccess"}');
   });
 
   it('rejects missing browser cookies, wrong state, expired flows and duplicate state before exchanging a code', async () => {
@@ -211,6 +243,7 @@ describe('Microsoft authorization code login', () => {
     const result = await microsoftCallback(request(callback, flow.cookie));
     expect(result.headers.get('location')).toBe('/cm-reporting/login?error=signin');
     expect(tokenRequests).toHaveLength(0);
+    expect(accessLog).not.toHaveBeenCalled();
   });
 });
 

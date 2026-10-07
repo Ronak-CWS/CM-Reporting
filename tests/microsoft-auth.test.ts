@@ -247,6 +247,70 @@ describe('Microsoft authorization code login', () => {
   });
 });
 
+describe('tenant-member access without a custom app role', () => {
+  it.each([undefined, '', '   '])('accepts a validated tenant member without roles when the role setting is %j', async (setting) => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', setting);
+    claimsOverride = { roles: undefined };
+    const result = await login();
+    expect(microsoftConfig().requiredRole).toBe('');
+    expect(accessFailure(request('/api/records', result.sessionCookie))).toBeNull();
+    expect(accessLog).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['an external tenant', { tid: '99999999-2222-3333-4444-555555555555' }, 'tenant_mismatch'],
+    ['a guest account', { acct: 1 }, 'guest_account'],
+    ['a missing member claim despite a company email', { acct: undefined, preferred_username: 'employee@collectivewaste.ca' }, 'member_claim_missing'],
+    ['an invalid member claim', { acct: null }, 'member_claim_invalid'],
+    ['a missing user object ID', { oid: undefined }, 'object_id_invalid'],
+  ])('still rejects %s without an app-role requirement', async (_label, override, reason) => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
+    claimsOverride = { roles: undefined, ...override };
+    const flow = await begin();
+    const response = await microsoftCallback(request(flow.callback, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/login?error=access');
+    expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(accessLog).toHaveBeenCalledTimes(1);
+    expect(accessLog).toHaveBeenCalledWith(`[CMReporting SSO] ${JSON.stringify({ event: 'access_denied', reasons: [reason] })}`);
+  });
+
+  it('still validates the Microsoft token signature without an app-role requirement', async () => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
+    claimsOverride = { roles: undefined };
+    badSignature = true;
+    const flow = await begin();
+    const response = await microsoftCallback(request(flow.callback, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/login?error=signin');
+    expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+    expect(accessLog).not.toHaveBeenCalled();
+  });
+
+  it('invalidates existing sessions when switching between member and assigned-role policies', async () => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
+    claimsOverride = { roles: undefined };
+    const member = await login();
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', 'CMReporting.Access');
+    expect(accessFailure(request('/api/records', member.sessionCookie))?.status).toBe(401);
+    claimsOverride = { roles: ['CMReporting.Access'] };
+    const assigned = await login();
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
+    expect(accessFailure(request('/api/records', assigned.sessionCookie))?.status).toBe(401);
+  });
+
+  it('still rejects malformed explicit role settings', () => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', 'invalid role value');
+    expect(microsoftConfig).toThrow('Set a valid Entra application access role');
+  });
+
+  it('passes production startup checks without a custom app role', async () => {
+    vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
+    const result = await promisify(execFile)(process.execPath, ['scripts/check-server.mjs'], {
+      env: { ...process.env, CM_LOCATION_CATALOGUE_PATH: fileURLToPath(new URL('./fixtures/service-locations.json', import.meta.url)) },
+    });
+    expect(result.stdout).toContain('Server configuration checked.');
+  });
+});
+
 describe('local sessions and protected reporting routes', () => {
   it('rejects forged cookies and identity/proxy headers', async () => {
     expect(accessFailure(request('/api/records', `${SESSION_COOKIE}=${'x'.repeat(43)}`, 'GET', {

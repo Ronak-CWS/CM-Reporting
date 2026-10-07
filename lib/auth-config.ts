@@ -30,17 +30,19 @@ export function microsoftConfig() {
   const tenantId = (process.env.CM_ENTRA_TENANT_ID || '').trim().toLowerCase();
   const clientId = (process.env.CM_ENTRA_CLIENT_ID || '').trim().toLowerCase();
   const clientSecret = process.env.CM_ENTRA_CLIENT_SECRET || '';
-  const requiredRole = (process.env.CM_ENTRA_REQUIRED_ROLE || 'CMReporting.Access').trim();
+  // All tenant members can sign in by default. Require an app role only when
+  // the application owner and IT have explicitly configured one.
+  const requiredRole = (process.env.CM_ENTRA_REQUIRED_ROLE || '').trim();
   if (!GUID.test(tenantId) || !GUID.test(clientId)) throw new Error('Set the Entra tenant and application client IDs.');
   if (clientSecret.length < 16 || clientSecret.startsWith('<')) throw new Error('Set the Entra client secret in the private server environment.');
-  if (!/^[a-zA-Z0-9._-]{1,120}$/.test(requiredRole)) throw new Error('Set a valid Entra application access role.');
+  if (requiredRole && !/^[a-zA-Z0-9._-]{1,120}$/.test(requiredRole)) throw new Error('Set a valid Entra application access role or leave it blank for tenant members.');
   const origin = publicOrigin();
   return {
     tenantId, clientId, clientSecret, requiredRole, origin,
     issuer: `https://login.microsoftonline.com/${tenantId}/v2.0`,
     redirectUri: `${origin}${appPath('/api/auth/microsoft/callback')}`,
     // Changing the registration or access policy also invalidates existing local sessions.
-    policy: `${tenantId}:${clientId}:${requiredRole}:member`,
+    policy: requiredRole ? `${tenantId}:${clientId}:${requiredRole}:member` : `${tenantId}:${clientId}:tenant-members`,
   };
 }
 

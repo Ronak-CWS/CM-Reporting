@@ -33,7 +33,7 @@ CM_DATA_DIR=D:\CMReportingData
 CM_ENTRA_TENANT_ID=f0a98ba2-a706-40a0-9951-cf19d9778310
 CM_ENTRA_CLIENT_ID=<client ID approved by SmartLayer for CM Reporting>
 CM_ENTRA_CLIENT_SECRET=<new secret supplied securely>
-CM_ENTRA_REQUIRED_ROLE=CMReporting.Access
+CM_ENTRA_REQUIRED_ROLE=
 ```
 
 The origin has no path or trailing slash. Do not transfer a development `.env.local` onto the server: it can override the production environment file. The catalogue defaults to `CM_DATA_DIR\service-locations.json`, unless `CM_LOCATION_CATALOGUE_PATH` overrides it.
@@ -82,7 +82,7 @@ When `REPORT_EMAIL_ENABLED=true`, the same entry point manages the email worker 
 
 For a manual server check, run `npm.cmd start`. Stop that instance before starting the service; run only one instance. No service is installed, started or restarted by this code change.
 
-Check `curl.exe -I http://127.0.0.1:3013/cm-reporting/login` locally, then open the final HTTPS login through IIS. The public login page is intentional; unauthenticated `/cm-reporting/api/records` must return 401. Verify a real assigned-employee login before declaring deployment complete. Updates require reinstalling locked dependencies when changed, rebuilding, and restarting this service while preserving the environment/data.
+Check `curl.exe -I http://127.0.0.1:3013/cm-reporting/login` locally, then open the final HTTPS login through IIS. The public login page is intentional; unauthenticated `/cm-reporting/api/records` must return 401. Verify a real tenant-member login before declaring deployment complete. Updates require reinstalling locked dependencies when changed, rebuilding, and restarting this service while preserving the environment/data.
 
 The former gateway integration remains available only through explicit `CM_AUTH_MODE=proxy`: authenticate employees at the gateway and overwrite `X-CM-User` and `X-CM-Proxy-Key` with the verified identity and random secret matching `CM_TRUSTED_PROXY_KEY` (at least 32 characters). Microsoft mode never falls back to these headers.
 

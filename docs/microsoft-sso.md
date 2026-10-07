@@ -13,12 +13,14 @@ Use a dedicated **single-tenant Web** registration for CM Reporting in the exist
 | Production redirect URI | `https://automation.collectivewaste.ca/cm-reporting/api/auth/microsoft/callback` |
 | Sign-in scopes | `openid profile email` |
 | API access | No Graph data permissions, application permissions or offline access required |
-| App role | Display name: CM Reporting access; value: `CMReporting.Access`; allowed member types: Users/Groups; enabled |
+| App role | Not required for the default tenant-member policy. Configure a role only if access is deliberately restricted by role. |
 | Optional ID-token claim | `acct`; the app requires member value `0` and rejects guests/missing claims |
-| Enterprise application | Assignment required: Yes; assign approved employees/groups to **CM Reporting access** |
+| Enterprise application | Permit the intended company-tenant members to sign in. Entra assignment and sign-in policies still apply independently of the app's optional role check. |
 | Implicit/hybrid grant checkboxes | Leave unchecked; authorization code with PKCE is used |
 
-The business owner supplies the approved employee list. Email recipients are not automatically the access list. All assigned employees currently receive the existing reporting features; driver/office permissions are not separate in this app.
+The approved default population is every member account in the configured company tenant, including administrator or contractor accounts classified as members. Guests are rejected. Email recipients and email suffixes do not determine access. All admitted members currently receive the existing reporting features; driver/office permissions are not separate in this app.
+
+In **App registrations > CM Reporting > Token configuration**, add the optional `acct` claim to the **ID token** (or configure it in the app manifest). The app requires Microsoft's member value `0`; guest value `1` and missing membership information remain rejected. This claim does not require access to mail, files or other Microsoft Graph data. See [Microsoft's optional-claim configuration](https://learn.microsoft.com/en-us/entra/identity-platform/optional-claims).
 
 Enter the new CM Reporting client ID and secret in the private environment file using the approved secure channel. The previously shared Reports Dashboard secret has not been stored or used here. Coordinate its rotation with the Reports Dashboard owner before removing that app's old secret.
 
@@ -36,12 +38,24 @@ Open `http://localhost:3000/cm-reporting/`. Production rejects the development a
 
 Follow [Windows installation](windows-server.md) for production. Never put credentials in `NEXT_PUBLIC_*` variables. The base path must be set before building; changes require rebuilding.
 
+## Access policy and existing deployments
+
+Leave `CM_ENTRA_REQUIRED_ROLE` blank or unset to allow all company-tenant members without a custom app role. For an existing server configuration, replace the old role value with:
+
+```dotenv
+CM_ENTRA_REQUIRED_ROLE=
+```
+
+Deploy the updated code, rebuild and restart the service. Earlier versions restore the mandatory `CMReporting.Access` default when this setting is empty, so changing the environment alone is not sufficient. If NSSM or the machine environment also defines this variable, clear the old value there. Switching access policies invalidates existing Microsoft and temporary guest sessions; users must sign in again. Report data is unaffected.
+
+To deliberately restrict access later, set `CM_ENTRA_REQUIRED_ROLE` to the exact value of a role that IT has created and assigned. Nonempty values remain enforced along with tenant membership. `CMReporting.Access` is only an example custom role name, not a built-in Microsoft role.
+
 ## Authentication and sessions
 
 - The OIDC library validates signature, issuer, audience, expiry and nonce. Every login uses PKCE and one-time state bound to a browser cookie and ten-minute server transaction.
-- Valid tokens also require the configured tenant, user object ID, member account claim and CM Reporting role. Identity uses tenant ID plus object ID; email/UPN is display-only.
+- Valid tokens also require the configured tenant, user object ID and member account claim. An application role is checked only when explicitly configured. Identity uses tenant ID plus object ID; email/UPN is display-only.
 - The browser receives an opaque random cookie scoped to `/cm-reporting`, with HttpOnly, SameSite=Lax and Secure over HTTPS. Private SQLite stores its hash and the employee identity. Microsoft tokens and client secrets are not retained in this database or returned to the browser.
-- Local sessions last eight hours without sliding renewal and survive service restarts. Removing an Entra assignment prevents the next login; existing local sessions are not instantly revoked. For immediate revocation of **all** sessions, stop the service, remove only `auth.sqlite` and its `auth.sqlite-wal`/`auth.sqlite-shm` sidecars from the verified private data folder, then restart. Leave `reports.sqlite` and photos intact. Never restore the auth database from backup.
+- Local sessions last eight hours without sliding renewal and survive service restarts. Entra account and assignment restrictions apply to subsequent Microsoft sign-ins as configured in Entra; existing local sessions are not instantly revoked. Changing the registration or configured application-role policy invalidates local sessions. For immediate revocation of **all** sessions, stop the service, remove only `auth.sqlite` and its `auth.sqlite-wal`/`auth.sqlite-shm` sidecars from the verified private data folder, then restart. Leave `reports.sqlite` and photos intact. Never restore the auth database from backup.
 - Sign out revokes the current CM Reporting session. It leaves the Microsoft session available to other company apps. This app does not implement tenant-wide/front-channel logout or continuous access evaluation.
 - Pages, records, autocomplete, photos and exports require authentication. Data handlers repeat the access check independently of Next's request proxy. Mutations and logout require the configured browser Origin.
 - Provider errors are reduced to safe messages. Configure IIS logs to omit callback query strings, which contain short-lived authorization codes, and avoid logging authentication request/response bodies.
@@ -50,9 +64,9 @@ Follow [Windows installation](windows-server.md) for production. Never put crede
 
 ## Diagnosing a return to `login?error=access`
 
-This redirect is generated by CM Reporting, not the Microsoft sign-in page. Successful Microsoft authentication and admin consent do not by themselves satisfy the app's member/role checks. A changed sign-in configuration during a pending login can also produce it.
+This redirect is generated by CM Reporting, not the Microsoft sign-in page. Successful Microsoft authentication and admin consent do not by themselves satisfy the app's membership check or any explicitly configured role check. A changed sign-in configuration during a pending login can also produce it.
 
-The callback writes one `[CMReporting SSO]` warning to the server's stderr with all failed checks. It logs fixed reason codes and the configured required role only. It does not log Microsoft tokens, authorization codes, callback URLs, secrets, email addresses, names or user identifiers. General provider errors remain unlogged.
+The callback writes one `[CMReporting SSO]` warning to the server's stderr with all failed checks. It logs fixed reason codes and, when configured, the required role only. It does not log Microsoft tokens, authorization codes, callback URLs, secrets, email addresses, names or user identifiers. General provider errors remain unlogged.
 
 After deploying the diagnostic change, start a fresh Microsoft sign-in attempt, then read the latest diagnostic on the Windows server:
 
@@ -67,14 +81,14 @@ Get-Content -LiteralPath 'C:\CMReportingLogs\stderr.log' -Tail 100 |
 | `member_claim_missing` | The validated ID token omitted `acct`. Ask SmartLayer to include the optional `acct` claim in the CM Reporting **ID token**. Missing does not mean the account is a guest. |
 | `guest_account` | The token identifies the account as a tenant guest (`acct=1`). Use the intended internal member account. |
 | `member_claim_invalid` | The ID token has an unexpected account-type value. Review its claim configuration. |
-| `app_role_missing` | The token lacks the role shown in `requiredRole`. Compare `CM_ENTRA_REQUIRED_ROLE` with the exact app-role **value** and the employee/group assignment. A directory administrator role or admin consent alone does not supply this application role. |
+| `app_role_missing` | A nonempty `CM_ENTRA_REQUIRED_ROLE` is still configured, and the token lacks that role. For the approved all-member policy, clear this setting and restart. For deliberate role restrictions, compare its exact value with the created role and user/group assignments. |
 | `tenant_mismatch`, `object_id_invalid`, `subject_invalid` | Review the app registration, tenant configuration and identity claims. These identity checks remain required. |
 | `signin_configuration_changed` | The configured registration, access policy or callback changed during this login. Start again from the login page using the current configuration. |
 
-For access by all internal employees, SmartLayer can assign the approved employee group to the CM Reporting role. The current app policy still checks membership and that role on every new Microsoft login; an email suffix is not an authorization rule.
+With a blank role setting, `member_claim_missing` is resolved by including `acct` in the ID token, not by creating an application role. Do not interpret a missing claim as a confirmed member or authorize by an email suffix.
 
 ## Before enabling staff access
 
 Automated tests use the real OIDC library with a mocked discovery/token/JWKS provider and RSA-signed tokens. They exercise invalid signatures/claims, unauthorized accounts, replay, cookie binding, expiry, logout, same-origin writes and direct data-route checks. They do not prove tenant settings, MFA/Conditional Access, or IIS behavior.
 
-Test the final HTTPS URL with an assigned employee and an unassigned employee. Check the role/member claim, sign-out, a saved report, original photo downloads, exports and a service restart. Confirm requests stay under `/cm-reporting/api/`. Validate camera and Microsoft sign-in handoff on the actual drivers' phones.
+Test the final HTTPS URL with a company-tenant member that has no custom app role, and confirm guest and other-tenant accounts remain denied. If a role is explicitly configured, also test assigned and unassigned accounts. Check the member claim, sign-out, a saved report, original photo downloads, exports and a service restart. Confirm requests stay under `/cm-reporting/api/`. Validate camera and Microsoft sign-in handoff on the actual drivers' phones.

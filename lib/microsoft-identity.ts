@@ -56,7 +56,7 @@ export function employeeFromClaims(claims: Record<string, unknown>): SignedInUse
   if (claims.acct === undefined) reasons.push('member_claim_missing');
   else if (claims.acct === 1 || claims.acct === '1') reasons.push('guest_account');
   else if (claims.acct !== 0 && claims.acct !== '0') reasons.push('member_claim_invalid');
-  if (!Array.isArray(claims.roles) || !claims.roles.includes(requiredRole)) reasons.push('app_role_missing');
+  if (requiredRole && (!Array.isArray(claims.roles) || !claims.roles.includes(requiredRole))) reasons.push('app_role_missing');
   // Report every failed check together, using fixed reason codes only. Do not
   // retain claims, tokens, names, emails or identifiers in diagnostic errors.
   if (reasons.length) throw new AccessDenied(reasons, requiredRole);

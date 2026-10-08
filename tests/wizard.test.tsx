@@ -39,7 +39,7 @@ async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
 }
 
 describe('simple driver flow', () => {
-  it('keeps service, notes, route and photos when editing an earlier step and uses the signed-in name', async () => {
+  it('keeps notes, route and photos when editing an earlier step and uses the signed-in name and fixed Recycling service', async () => {
     window.localStorage.setItem('cm-reporting-driver-name', 'Previous device user');
     render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} />);
     const user = await reachPhotos('street');
@@ -51,7 +51,10 @@ describe('simple driver flow', () => {
     await user.type(name, 'Someone else');
     expect(name).toHaveProperty('value', 'Test Driver');
     expect(screen.getByLabelText('Service').closest('details')).toBeNull();
-    await user.selectOptions(screen.getByLabelText('Service'), 'Waste');
+    expect(screen.getByLabelText('Service')).toHaveProperty('value', 'Recycling');
+    expect(screen.getByLabelText('Service')).toHaveProperty('readOnly', true);
+    await user.type(screen.getByLabelText('Service'), 'Waste');
+    expect(screen.getByLabelText('Service')).toHaveProperty('value', 'Recycling');
     await user.click(screen.getByText('Add a note or route'));
     await user.type(screen.getByLabelText('Anything else?'), 'Office notified');
     await user.type(screen.getByLabelText('Route number'), 'R12');
@@ -59,7 +62,7 @@ describe('simple driver flow', () => {
     expect(screen.getByLabelText('Street name')).toHaveProperty('value', 'Test Street');
     await user.click(screen.getByRole('button', { name: 'Return to review' }));
     expect(screen.getByText('1 attached')).toBeTruthy();
-    expect(screen.getByLabelText('Service')).toHaveProperty('value', 'Waste');
+    expect(screen.getByLabelText('Service')).toHaveProperty('value', 'Recycling');
     expect(screen.getByLabelText('Anything else?')).toHaveProperty('value', 'Office notified');
     expect(screen.getByLabelText('Route number')).toHaveProperty('value', 'R12');
     act(() => window.dispatchEvent(new CustomEvent(SESSION_RESTORED_EVENT, { detail: 'Reauthenticated Driver' })));

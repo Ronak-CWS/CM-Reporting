@@ -279,7 +279,7 @@ it('saves the Microsoft session name instead of a submitted name and keeps repor
   expect(response.status).toBe(201);
   const { record } = await response.json() as { record: ReportRecord };
   expect(record.employeeName).toBe('Signed-in Driver');
-  expect(record.serviceType).toBe('Waste');
+  expect(record.serviceType).toBe('Recycling');
   const colleague = `${SESSION_COOKIE}=${createSession({ ...user, objectId: randomUUID(), name: 'Colleague' }, microsoftConfig().policy)}`;
   const listed = await (await getReports(request('/api/records', {}, colleague))).json() as { records: ReportRecord[] };
   expect(listed.records.find((item) => item.id === record.id)?.employeeName).toBe('Signed-in Driver');

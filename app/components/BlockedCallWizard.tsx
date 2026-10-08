@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { appPath } from '../../lib/app-path.js';
 import { reportingFetch, SESSION_RESTORED_EVENT } from '../../lib/reporting-fetch';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { blockageScopeLabel, findBlockedReason, searchBlockedReasons } from '../../lib/blocked-call-options';
+import { BLOCKED_CALL_SERVICE, blockageScopeLabel, findBlockedReason, searchBlockedReasons } from '../../lib/blocked-call-options';
 import { MAX_PHOTOS, PHOTO_ACCEPT, photoSelectionError } from '../../lib/photo-validation';
 import type { BlockageScope, ReportRecord } from '../../lib/report-types';
 import ReportPhotoPreview from './ReportPhotoPreview';
@@ -38,7 +38,6 @@ export default function BlockedCallWizard({
   const [employeeName, setEmployeeName] = useState(reporterName);
   const [notes, setNotes] = useState('');
   const [routeNumber, setRouteNumber] = useState('');
-  const [serviceType, setServiceType] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   const [savedRecord, setSavedRecord] = useState<ReportRecord | null>(null);
@@ -159,7 +158,7 @@ export default function BlockedCallWizard({
       registeredCommunity: community.trim(), siteAddress: location.trim(),
       reasonCode, otherReason: otherReason.trim(), streetFrom: streetFrom.trim(), streetTo: streetTo.trim(),
       vehiclePlates: reason?.requiresVehiclePlate ? normalizedVehiclePlates(vehiclePlates) : [], notes: notes.trim(), employeeName: employeeName.trim(),
-      routeNumber: routeNumber.trim(), serviceType,
+      routeNumber: routeNumber.trim(), serviceType: BLOCKED_CALL_SERVICE,
     };
     const signature = JSON.stringify({ payload, photoIds: photos.map((photo) => photo.id) });
     if (submissionRef.current?.signature !== signature) submissionRef.current = { signature, id: crypto.randomUUID() };
@@ -247,7 +246,7 @@ export default function BlockedCallWizard({
                   isStreet ? 'Search and select the community and street.' : 'Search and select the community and pickup address.',
                   'Tap the reason that fits best.',
                   'Show the blockage. One photo is required.',
-                  'Check the details and select the service. Your name is filled in from your account.',
+                  'Check the details. Your name is filled in from your account.',
                 ][step]}</p>
               </div>
 
@@ -348,7 +347,7 @@ export default function BlockedCallWizard({
                         <div><dt>Photos</dt><dd>{photos.length} attached</dd><button className="text-button" type="button" onClick={() => goTo(3)} aria-label="Edit photos">Edit</button></div>
                       </dl>
                       <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} readOnly aria-describedby="driver-name-hint" /><small id="driver-name-hint">From your signed-in account.</small></label>
-                      <label htmlFor="driver-service">Service<select id="driver-service" value={serviceType} onChange={(event) => setServiceType(event.target.value)}><option value="">Select if known</option>{['Recycling', 'Waste', 'Organics', 'Communal', 'Other'].map((service) => <option key={service}>{service}</option>)}</select></label>
+                      <label htmlFor="driver-service">Service<input id="driver-service" value={BLOCKED_CALL_SERVICE} readOnly /></label>
                       <details className="driver-optional">
                         <summary>Add a note or route <span>(optional)</span></summary>
                         <div className="driver-field-stack">

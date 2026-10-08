@@ -31,7 +31,7 @@ describe('blocked call options and input', () => {
 
   it('creates only an open blocked call with the automatic Mountain timestamp', () => {
     const result = parseBlockedCallInput({ ...input, status: 'Resolved', priority: 'Urgent', occurredAt: '1900-01-01', vehiclePlates: ' ABC-123 ', streetFrom: 'Not a street report' }, new Date('2026-09-17T19:00:00Z'));
-    expect(result).toMatchObject({ category: 'Blocked call', status: 'Open', priority: 'Normal', occurredAt: '2026-09-17T13:00:00-06:00', resolvedAt: '' });
+    expect(result).toMatchObject({ category: 'Blocked call', serviceType: 'Recycling', status: 'Open', priority: 'Normal', occurredAt: '2026-09-17T13:00:00-06:00', resolvedAt: '' });
     expect(result.blockage).toMatchObject({ scope: 'pickup', vehiclePlates: 'ABC-123', streetFrom: '' });
   });
 

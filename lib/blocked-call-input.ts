@@ -1,4 +1,4 @@
-import { findBlockedReason, blockageScopeLabel } from './blocked-call-options';
+import { BLOCKED_CALL_SERVICE, findBlockedReason, blockageScopeLabel } from './blocked-call-options';
 import type { BlockageScope, CreateReportRecordInput } from './report-types';
 import { edmontonTimestamp } from './report-time';
 import { normalizedVehiclePlates, vehiclePlateError } from './vehicle-plates';
@@ -60,7 +60,7 @@ export function parseBlockedCallInput(payload: unknown, now = new Date()): Creat
 
   return {
     recordType: 'daily', occurredAt: edmontonTimestamp(now), ...approvedLocation,
-    routeNumber: text(body, 'routeNumber', 80), serviceType: text(body, 'serviceType', 80),
+    routeNumber: text(body, 'routeNumber', 80), serviceType: BLOCKED_CALL_SERVICE,
     category: 'Blocked call', categoryOtherReason: '', priority: 'Normal', status: 'Open',
     employeeName, employeeTitle: '', contactMedium: '', customerName: '',
     customerAddress: '', customerContactInformation: '', issueDescription,

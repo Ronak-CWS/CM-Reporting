@@ -1,6 +1,8 @@
 import { BLOCKED_CALL_REASON_OPTIONS, getBlockedCallReasonSuggestions } from './blocked-call-reasons';
 import type { BlockageScope } from './report-types';
 
+export const BLOCKED_CALL_SERVICE = 'Recycling';
+
 export interface BlockedReason {
   code: string;
   label: string;

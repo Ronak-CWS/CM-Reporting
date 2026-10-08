@@ -28,14 +28,14 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 async function openForm() {
-  render(<ReportingApp />);
+  render(<ReportingApp user={{ tenantId: '11111111-2222-3333-4444-555555555555', objectId: 'aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee', name: 'Test Staff', username: 'staff@example.invalid' }} />);
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: 'Log complaint' }));
   return user;
 }
 function fillRequiredDetails() {
   for (const [label, value] of [
-    ['Employee name', 'Test Staff'], ['Employee title', 'Dispatcher'], ['Customer name', 'Test Customer'],
+    ['Employee title', 'Dispatcher'], ['Customer name', 'Test Customer'],
     ['Address', '456 Example Avenue'], ['Contact information', 'customer@example.invalid'],
     ['Description of inquiry or complaint', 'Details of the complaint.'],
   ]) fireEvent.change(screen.getByLabelText(new RegExp(`^${label}`)), { target: { value } });
@@ -66,13 +66,14 @@ describe('complaint community selection', () => {
     await user.click(screen.getByRole('button', { name: 'Save complaint' }));
     expect(submitted).toHaveLength(0);
   });
-  it('submits the selected community with the complaint', async () => {
+  it('prefills the signed-in employee name and submits it with the selected community', async () => {
     const user = await openForm();
+    expect(screen.getByLabelText(/^Employee name/)).toHaveProperty('value', 'Test Staff');
     fillRequiredDetails();
     await selectCommunity(user);
     await user.click(screen.getByRole('button', { name: 'Save complaint' }));
     await waitFor(() => expect(submitted).toHaveLength(1));
-    expect(submitted[0]).toMatchObject({ registeredCommunity: 'Test community', recordType: 'complaint' });
+    expect(submitted[0]).toMatchObject({ registeredCommunity: 'Test community', recordType: 'complaint', employeeName: 'Test Staff' });
     expect(screen.queryByRole('dialog', { name: 'Log an inquiry or complaint' })).toBeNull();
   });
 });

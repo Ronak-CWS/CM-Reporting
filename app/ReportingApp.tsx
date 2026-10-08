@@ -638,8 +638,9 @@ function Field({
 }
 
 function ComplaintFormModal({
-  onClose, onSaved,
+  reporterName, onClose, onSaved,
 }: {
+  reporterName: string;
   onClose: () => void;
   onSaved: (record: ReportRecord) => void;
 }) {
@@ -743,7 +744,7 @@ function ComplaintFormModal({
             <fieldset disabled={saving}>
               <legend><span className="form-section-number" aria-hidden="true">2</span>Employee logging the record</legend>
               <div className="form-grid">
-                <Field label="Employee name" name="employeeName" required><input id="employeeName" name="employeeName" type="text" autoComplete="name" required /></Field>
+                <Field label="Employee name" name="employeeName" required><input id="employeeName" name="employeeName" type="text" defaultValue={reporterName} autoComplete="off" required /></Field>
                 <Field label="Employee title" name="employeeTitle" required><input id="employeeTitle" name="employeeTitle" type="text" placeholder="Customer service representative" required /></Field>
               </div>
             </fieldset>
@@ -1129,7 +1130,7 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
         </div>
       </section>
 
-      {formMode === 'complaint' ? <ComplaintFormModal onClose={() => setFormMode(null)} onSaved={handleCreated} /> : null}
+      {formMode === 'complaint' ? <ComplaintFormModal reporterName={reporterName} onClose={() => setFormMode(null)} onSaved={handleCreated} /> : null}
       {selectedRecord ? <RecordDetails record={selectedRecord} onClose={() => setSelectedRecordId('')} onUpdated={handleUpdated} /> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </main>

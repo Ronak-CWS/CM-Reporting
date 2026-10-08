@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from 'next/server';
 import { accessFailure } from './lib/request-access';
-import { appPath, basePath } from './lib/app-path.js';
+import { basePath } from './lib/app-path.js';
 import { publicOrigin } from './lib/auth-config';
+import { withReturnTo } from './lib/auth-navigation';
 
 const publicPaths = new Set([
   '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/guest', '/api/auth/logout',
@@ -20,7 +21,7 @@ export function proxy(request: NextRequest) {
       try {
         // Next's proxy adapter requires an absolute URL. Use the configured
         // public origin because IIS can forward a loopback or untrusted Host.
-        const response = NextResponse.redirect(new URL(appPath('/login'), publicOrigin()), 303);
+        const response = NextResponse.redirect(new URL(withReturnTo('/login', pathname), publicOrigin()), 303);
         response.headers.set('Cache-Control', 'private, no-store');
         return response;
       } catch {

@@ -51,8 +51,8 @@ function request(route: string, cookie = '', method = 'GET', headers: Record<str
   return new Request(`${base}${route}`, { method, headers: { cookie, ...headers } });
 }
 
-async function begin() {
-  const response = await startMicrosoftLogin(request('/api/auth/microsoft/start'));
+async function begin(returnTo = '') {
+  const response = await startMicrosoftLogin(request(`/api/auth/microsoft/start${returnTo ? `?returnTo=${encodeURIComponent(returnTo)}` : ''}`));
   expect(response.status).toBe(303);
   const url = new URL(response.headers.get('location')!);
   nonce = url.searchParams.get('nonce')!;
@@ -118,6 +118,29 @@ beforeEach(() => {
 });
 
 describe('Microsoft authorization code login', () => {
+  it('returns a driver to the requested form after a verified login and keeps the registered callback unchanged', async () => {
+    const flow = await begin('/blocked-call');
+    expect(flow.url.searchParams.get('redirect_uri')).toBe(`${base}/api/auth/microsoft/callback`);
+    closeAuthStore();
+    const response = await microsoftCallback(request(`${flow.callback}&returnTo=https://untrusted.invalid`, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/blocked-call');
+    expect(response.cookies.get(SESSION_COOKIE)?.value).toHaveLength(43);
+  });
+
+  it.each(['https://untrusted.invalid', '//untrusted.invalid', '/api/records', '/blocked-call/../api/records', '/%2f%2funtrusted.invalid'])('ignores an unsupported return destination %s', async (destination) => {
+    const flow = await begin(destination);
+    const response = await microsoftCallback(request(flow.callback, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/');
+  });
+
+  it('keeps the driver destination when a valid login flow fails the access check', async () => {
+    const flow = await begin('/blocked-call');
+    claimsOverride = { acct: 1 };
+    const response = await microsoftCallback(request(flow.callback, flow.cookie));
+    expect(response.headers.get('location')).toBe('/cm-reporting/login?error=access&returnTo=%2Fblocked-call');
+    expect(response.cookies.get(SESSION_COOKIE)).toBeUndefined();
+  });
+
   it('uses minimal scopes, PKCE, nonce, state and a path-scoped HttpOnly cookie', async () => {
     const { response, url } = await begin();
     expect(url.origin).toBe('https://login.microsoftonline.com');
@@ -365,6 +388,7 @@ describe('local sessions and protected reporting routes', () => {
       expect(proxy(new NextRequest(`${base}${route}`)).headers.get('x-middleware-next')).toBe('1');
     }
     expect(proxy(new NextRequest(`${base}/`)).headers.get('location')).toBe(`${base}/login`);
+    expect(proxy(new NextRequest(`${base}/blocked-call`)).headers.get('location')).toBe(`${base}/login?returnTo=%2Fblocked-call`);
     expect(proxy(new NextRequest(`${base}/api/records`)).status).toBe(401);
   });
 

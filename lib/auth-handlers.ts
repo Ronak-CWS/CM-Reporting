@@ -5,6 +5,7 @@ import { FLOW_COOKIE, FLOW_SECONDS, guestLoginConfig, GUEST_SESSION_SECONDS, mic
 import { consumeLoginFlow, createSession, deleteLoginFlow, deleteSession, saveLoginFlow, takeGuestLoginAttempt } from './auth-store';
 import { AccessDenied, beginMicrosoftLogin, completeMicrosoftLogin } from './microsoft-identity';
 import { mutationFailure, requestCookie } from './request-access';
+import { safeReturnTo, withReturnTo } from './auth-navigation';
 
 function redirect(location: string) {
   return new NextResponse(null, { status: 303, headers: { Location: location, 'Cache-Control': 'private, no-store', 'Referrer-Policy': 'no-referrer' } });
@@ -18,30 +19,33 @@ function setCookie(response: NextResponse, name: string, value: string, maxAge: 
 }
 
 export async function startMicrosoftLogin(request: Request) {
+  const returnTo = safeReturnTo(new URL(request.url).searchParams.get('returnTo'));
   try {
-    const { flow, location } = await beginMicrosoftLogin();
+    const { flow, location } = await beginMicrosoftLogin(returnTo);
     deleteLoginFlow(requestCookie(request, FLOW_COOKIE));
     const response = redirect(location);
     setCookie(response, FLOW_COOKIE, saveLoginFlow(flow), FLOW_SECONDS);
     return response;
   } catch {
     // Do not log provider errors: they can contain codes, tokens, or request credentials.
-    return redirect(appPath('/login?error=unavailable'));
+    return redirect(withReturnTo('/login?error=unavailable', returnTo));
   }
 }
 
 export async function microsoftCallback(request: Request) {
   let response: NextResponse;
+  let returnTo = '/';
   try {
     const settings = microsoftConfig();
     const url = new URL(request.url);
     if (url.searchParams.getAll('state').length !== 1) throw new Error('Invalid sign-in transaction.');
     const flow = consumeLoginFlow(requestCookie(request, FLOW_COOKIE), url.searchParams.get('state') || '');
     if (!flow) throw new Error('Expired sign-in transaction.');
+    returnTo = safeReturnTo(flow.returnTo);
     const user = await completeMicrosoftLogin(url.search, flow);
     // A successful login rotates any previous session rather than adopting browser input.
     deleteSession(requestCookie(request, SESSION_COOKIE));
-    response = redirect(appPath('/'));
+    response = redirect(appPath(returnTo));
     setCookie(response, SESSION_COOKIE, createSession(user, settings.policy), SESSION_SECONDS);
   } catch (error) {
     if (error instanceof AccessDenied) {
@@ -49,33 +53,35 @@ export async function microsoftCallback(request: Request) {
       // Never serialize the error itself or any provider/request/token details.
       console.warn(`[CMReporting SSO] ${JSON.stringify({ event: 'access_denied', reasons: error.reasons, requiredRole: error.requiredRole || undefined })}`);
     }
-    response = redirect(appPath(`/login?error=${error instanceof AccessDenied ? 'access' : 'signin'}`));
+    response = redirect(withReturnTo(`/login?error=${error instanceof AccessDenied ? 'access' : 'signin'}`, returnTo));
   }
   setCookie(response, FLOW_COOKIE, '', 0);
   return response;
 }
 
 export async function guestLogin(request: Request) {
+  const returnTo = safeReturnTo(new URL(request.url).searchParams.get('returnTo'));
+  const guestError = (error: string) => redirect(withReturnTo(`/login?error=${error}`, returnTo));
   try {
     if (request.method !== 'POST') return new NextResponse(null, { status: 405, headers: { Allow: 'POST', 'Cache-Control': 'private, no-store' } });
     const failure = mutationFailure(request);
     if (failure) return NextResponse.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } });
     const settings = guestLoginConfig();
-    if (!settings) return redirect(appPath('/login?error=guest-unavailable'));
+    if (!settings) return guestError('guest-unavailable');
     const retryAfter = takeGuestLoginAttempt(settings.policy);
     if (retryAfter) {
-      const response = redirect(appPath('/login?error=guest-rate'));
+      const response = guestError('guest-rate');
       response.headers.set('Retry-After', String(retryAfter));
       return response;
     }
     const contentType = (request.headers.get('content-type') || '').split(';')[0].trim().toLowerCase();
     if (contentType !== 'application/x-www-form-urlencoded') {
-      return redirect(appPath('/login?error=guest-signin'));
+      return guestError('guest-signin');
     }
     // Bound the stream as well as Content-Length so chunked requests cannot
     // allocate an unbounded password body. Passwords never enter a URL or log.
     let received = 0;
-    if (Number(request.headers.get('content-length')) > 2048) return redirect(appPath('/login?error=guest-signin'));
+    if (Number(request.headers.get('content-length')) > 2048) return guestError('guest-signin');
     const bounded = request.body?.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
       transform(chunk, controller) {
         received += chunk.byteLength;
@@ -86,25 +92,25 @@ export async function guestLogin(request: Request) {
     let password: string;
     try {
       const form = new URLSearchParams(await new Response(bounded).text());
-      if (form.getAll('password').length !== 1) return redirect(appPath('/login?error=guest-signin'));
+      if (form.getAll('password').length !== 1) return guestError('guest-signin');
       password = form.get('password') || '';
     } catch {
-      return redirect(appPath('/login?error=guest-signin'));
+      return guestError('guest-signin');
     }
     if (password.length > 128 || !timingSafeEqual(createHash('sha256').update(password).digest(), settings.passwordDigest)) {
-      return redirect(appPath('/login?error=guest-signin'));
+      return guestError('guest-signin');
     }
     const maxAge = Math.min(GUEST_SESSION_SECONDS, settings.expiresAt - Math.floor(Date.now() / 1000));
-    if (maxAge <= 0) return redirect(appPath('/login?error=guest-unavailable'));
+    if (maxAge <= 0) return guestError('guest-unavailable');
     deleteSession(requestCookie(request, SESSION_COOKIE));
     deleteLoginFlow(requestCookie(request, FLOW_COOKIE));
-    const response = redirect(appPath('/'));
+    const response = redirect(appPath(returnTo));
     const token = createSession({ kind: 'guest', name: 'Guest tester', username: 'Temporary test access' }, settings.policy, maxAge);
     setCookie(response, SESSION_COOKIE, token, maxAge);
     setCookie(response, FLOW_COOKIE, '', 0);
     return response;
   } catch {
-    return redirect(appPath('/login?error=guest-unavailable'));
+    return guestError('guest-unavailable');
   }
 }
 

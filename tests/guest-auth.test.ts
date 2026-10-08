@@ -86,6 +86,17 @@ afterEach(() => {
 });
 
 describe('temporary guest login', () => {
+  it('returns to the driver form after guest login and keeps that destination after a wrong password', async () => {
+    const guestRequest = (value: string, destination = '/blocked-call') => request(`/api/auth/guest?returnTo=${encodeURIComponent(destination)}`, {
+      method: 'POST', headers: { origin }, body: new URLSearchParams({ password: value }),
+    });
+    const denied = await guestLogin(guestRequest('wrong'));
+    expect(denied.headers.get('location')).toBe('/cm-reporting/login?error=guest-signin&returnTo=%2Fblocked-call');
+    const accepted = await guestLogin(guestRequest(password));
+    expect(accepted.headers.get('location')).toBe('/cm-reporting/blocked-call');
+    expect(accepted.cookies.get(SESSION_COOKIE)?.value).toHaveLength(43);
+    expect((await guestLogin(guestRequest(password, 'https://untrusted.invalid'))).headers.get('location')).toBe('/cm-reporting/');
+  });
   it('is disabled by default and cannot be enabled by browser input', async () => {
     vi.stubEnv('CM_GUEST_LOGIN_ENABLED', '');
     expect(guestLoginConfig()).toBeNull();
@@ -232,6 +243,7 @@ it('lets an authenticated guest submit, view, update and export a report with ph
   const created = await submitReport(request('/api/records', { method: 'POST', headers: { origin }, body: form }, cookie));
   expect(created.status).toBe(201);
   const { record } = await created.json() as { record: ReportRecord };
+  expect(record.employeeName).toBe('Guest tester');
   const listed = await (await getReports(request('/api/records', {}, cookie))).json() as { records: ReportRecord[] };
   expect(listed.records.map((item) => item.id)).toContain(record.id);
   expect((await getLocations(request('/api/locations?kind=community&q=Test', {}, cookie))).status).toBe(200);
@@ -252,4 +264,23 @@ it('lets an authenticated guest submit, view, update and export a report with ph
   expect((await getReports(request('/api/records', {}, cookie))).status).toBe(401);
   expect((await getPhoto(photoRequest, context)).status).toBe(401);
   expect((await getExport(request('/api/export?type=daily', {}, cookie))).status).toBe(401);
+});
+
+it('saves the Microsoft session name instead of a submitted name and keeps reports shared', async () => {
+  runtime.storage = createLocalStorage(directory);
+  const user = { tenantId: microsoftConfig().tenantId, objectId: randomUUID(), name: 'Signed-in Driver', username: 'driver@example.invalid' };
+  const cookie = `${SESSION_COOKIE}=${createSession(user, microsoftConfig().policy)}`;
+  const photo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64');
+  const form = new FormData();
+  form.set('report', JSON.stringify({ recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding', registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Someone else', serviceType: 'Waste' }));
+  form.set('submissionId', randomUUID());
+  form.append('photos', new File([photo], 'blockage.png', { type: 'image/png' }));
+  const response = await submitReport(request('/api/records', { method: 'POST', headers: { origin }, body: form }, cookie));
+  expect(response.status).toBe(201);
+  const { record } = await response.json() as { record: ReportRecord };
+  expect(record.employeeName).toBe('Signed-in Driver');
+  expect(record.serviceType).toBe('Waste');
+  const colleague = `${SESSION_COOKIE}=${createSession({ ...user, objectId: randomUUID(), name: 'Colleague' }, microsoftConfig().policy)}`;
+  const listed = await (await getReports(request('/api/records', {}, colleague))).json() as { records: ReportRecord[] };
+  expect(listed.records.find((item) => item.id === record.id)?.employeeName).toBe('Signed-in Driver');
 });

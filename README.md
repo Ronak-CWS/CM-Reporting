@@ -12,6 +12,9 @@ Access requires the configured company tenant and tenant-member claim. A custom 
 
 ## Driver workflow
 
+- Drivers can open `https://automation.collectivewaste.ca/cm-reporting/blocked-call` directly. Sign-in returns them to the form, including temporary guest sign-in when enabled. The registered Microsoft callback URL stays unchanged.
+- The final step shows the service selector and the signed-in account name as a read-only field. The server uses that account name for blocked-call submissions, regardless of a name supplied by the browser. Temporary guest reports are attributed to Guest tester; local development reports use Local development. Complaint entry fields are unchanged, and records remain shared.
+- Back, the visited step buttons and the review Edit actions let drivers revisit answers and return to review with their photos, notes, route and service intact. Changes to the blockage type or community clear dependent selections and must be completed before submission.
 - Community, pickup address and street fields provide searchable suggestions. Drivers must choose a listed option. Editing a selection invalidates it; changing community clears the location. The server checks the community/location pair independently.
 - One “Blocked by a vehicle” option combines car, truck, van and vehicle and requires one plate. “Blocked by multiple vehicles” requires two different plates in separate fields, with additional fields available. Street vehicle blockages also require two plates.
 - “Other reason” requires a description.
@@ -27,7 +30,7 @@ New blocked-call and complaint submissions can notify approved recipients throug
 
 Notifications are committed with each report in a durable SQLite outbox, so SMTP outages do not lose submissions. The managed production start script runs the delivery worker and retries failures. Status edits do not send another submission email. Daily scheduled CSV delivery remains separate and is not enabled.
 
-Failed submissions retain the draft and photos while the page stays open; this is not an offline queue. Only the driver-name preference is stored in the browser.
+Failed submissions retain the draft and photos while the page stays open; this is not an offline queue. The driver name comes from the signed-in session instead of a device preference.
 
 ## Approved address catalogue
 

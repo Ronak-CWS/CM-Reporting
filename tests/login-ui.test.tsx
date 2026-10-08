@@ -40,6 +40,14 @@ describe('Microsoft sign-in screen', () => {
     expect(screen.getByRole('alert').textContent).toContain('does not have access');
     expect(screen.getByRole('link', { name: 'Sign in with Microsoft' })).toBeDefined();
   });
+  it('preserves the driver destination for both login options', async () => {
+    vi.stubEnv('CM_GUEST_LOGIN_ENABLED', 'true');
+    vi.stubEnv('CM_GUEST_LOGIN_PASSWORD', 'unit-test-password-not-a-real-secret');
+    vi.stubEnv('CM_GUEST_LOGIN_EXPIRES_AT', new Date(Date.now() + 3600_000).toISOString());
+    render(await Login({ searchParams: Promise.resolve({ returnTo: '/blocked-call' }) }));
+    expect(screen.getByRole('link', { name: 'Sign in with Microsoft' }).getAttribute('href')).toBe('/cm-reporting/api/auth/microsoft/start?returnTo=%2Fblocked-call');
+    expect(screen.getByRole('button', { name: 'Guest login' }).closest('form')?.getAttribute('action')).toBe('/cm-reporting/api/auth/guest?returnTo=%2Fblocked-call');
+  });
   it('shows a password-protected guest form only during an active testing window', async () => {
     vi.stubEnv('CM_GUEST_LOGIN_ENABLED', 'true');
     vi.stubEnv('CM_GUEST_LOGIN_PASSWORD', 'unit-test-password-not-a-real-secret');

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { accessResponse } from '../../../lib/request-access';
+import { accessResponse, reportAuthorName } from '../../../lib/request-access';
 import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-input';
 import { validatePhotos } from '../../../lib/photo-validation';
 import { readReportBody } from '../../../lib/request-body';
@@ -164,7 +164,7 @@ export async function POST(request: Request) {
   try {
     const { payload, files, submissionId } = await readReportBody(request);
     if (payload?.recordType === 'daily') {
-      const input = parseBlockedCallInput(payload);
+      const input = parseBlockedCallInput({ ...payload, employeeName: reportAuthorName(request) });
       if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
         throw new InputError('Please open a new blocked call report to submit photos.');
       }

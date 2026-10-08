@@ -18,6 +18,17 @@ export function signedInUser(request: Request) {
   return session?.kind === 'guest' ? session : null;
 }
 
+// Use only after the request has passed accessFailure/accessResponse.
+// Blocked-call authors come from the server's identity, never form fields.
+export function reportAuthorName(request: Request) {
+  const mode = authenticationMode();
+  if (mode === 'development') return 'Local development';
+  if (mode === 'proxy' && !proxyFailure(request)) return request.headers.get('x-cm-user')!.trim().slice(0, 250);
+  const user = signedInUser(request);
+  if (!user) throw new Error('Sign in before submitting a report.');
+  return (user.name.trim() || user.username.trim()).slice(0, 250);
+}
+
 export function mutationFailure(request: Request): { status: number; error: string } | null {
   if (!['GET', 'HEAD', 'OPTIONS'].includes(request.method) && request.headers.get('origin') !== publicOrigin()) {
     return { status: 403, error: 'Submit reports from the company reporting portal.' };

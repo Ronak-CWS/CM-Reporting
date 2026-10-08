@@ -2,7 +2,7 @@
 
 import Image from 'next/image';
 import { appPath } from '../../lib/app-path.js';
-import { reportingFetch } from '../../lib/reporting-fetch';
+import { reportingFetch, SESSION_RESTORED_EVENT } from '../../lib/reporting-fetch';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { blockageScopeLabel, findBlockedReason, searchBlockedReasons } from '../../lib/blocked-call-options';
 import { MAX_PHOTOS, PHOTO_ACCEPT, photoSelectionError } from '../../lib/photo-validation';
@@ -17,17 +17,11 @@ import './blocked-call-wizard.css';
 type LocalPhoto = { id: string; file: File; url: string };
 const STEPS = ['Blockage', 'Location', 'Reason', 'Photos', 'Review'];
 const TITLES = ['What is blocked?', 'Where is the blockage?', 'What is blocking access?', 'Add a photo', 'Ready to submit?'];
-const DRIVER_PREFERENCE = 'cm-reporting-driver-name';
-
-function rememberedName() {
-  try { return window.localStorage.getItem(DRIVER_PREFERENCE) || ''; }
-  catch { return ''; }
-}
-
 export default function BlockedCallWizard({
-  onClose, onSaved,
-}: { onClose: () => void; onSaved: (record: ReportRecord) => void }) {
+  reporterName, onClose, onSaved,
+}: { reporterName: string; onClose: () => void; onSaved?: (record: ReportRecord) => void }) {
   const [step, setStep] = useState(0);
+  const [furthestStep, setFurthestStep] = useState(0);
   const [scope, setScope] = useState<BlockageScope | null>(null);
   const [community, setCommunity] = useState('');
   const [location, setLocation] = useState('');
@@ -41,7 +35,7 @@ export default function BlockedCallWizard({
   const [showAllReasons, setShowAllReasons] = useState(false);
   const [vehiclePlates, setVehiclePlates] = useState<string[]>(['']);
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
-  const [employeeName, setEmployeeName] = useState(rememberedName);
+  const [employeeName, setEmployeeName] = useState(reporterName);
   const [notes, setNotes] = useState('');
   const [routeNumber, setRouteNumber] = useState('');
   const [serviceType, setServiceType] = useState('');
@@ -72,13 +66,40 @@ export default function BlockedCallWizard({
   }, []);
 
   useEffect(() => {
+    const refreshName = (event: Event) => {
+      const name: unknown = (event as CustomEvent).detail;
+      if (typeof name === 'string' && name.trim()) setEmployeeName(name.trim().slice(0, 250));
+    };
+    window.addEventListener(SESSION_RESTORED_EVENT, refreshName);
+    return () => window.removeEventListener(SESSION_RESTORED_EVENT, refreshName);
+  }, []);
+
+  useEffect(() => {
     if (!hasDraft || savedRecord) return;
     const warn = (event: BeforeUnloadEvent) => { event.preventDefault(); event.returnValue = ''; };
     window.addEventListener('beforeunload', warn);
     return () => window.removeEventListener('beforeunload', warn);
   }, [hasDraft, savedRecord]);
 
-  function goTo(nextStep: number) { setError(''); setStep(nextStep); }
+  function showStep(nextStep: number) {
+    setError(''); setStep(nextStep);
+    setFurthestStep((current) => Math.max(current, nextStep));
+  }
+
+  function validateThrough(lastStep: number) {
+    for (let index = 0; index <= lastStep; index++) {
+      const message = stepError(index);
+      if (message) { setStep(index); setError(message); return false; }
+    }
+    return true;
+  }
+
+  function goTo(nextStep: number) {
+    if (busyRef.current) return;
+    // Revisiting a completed step must never bypass fields invalidated by edits.
+    if (nextStep > step && !validateThrough(nextStep - 1)) return;
+    showStep(nextStep);
+  }
 
   function chooseScope(nextScope: BlockageScope) {
     if (scope !== nextScope) {
@@ -87,7 +108,7 @@ export default function BlockedCallWizard({
       setLocationSelected(false);
     }
     setScope(nextScope);
-    goTo(1);
+    showStep(1);
   }
 
   function addPhotos(event: ChangeEvent<HTMLInputElement>) {
@@ -116,23 +137,23 @@ export default function BlockedCallWizard({
     setError('');
   }
 
-  function stepError() {
-    if (step === 1 && !communitySelected) return 'Choose a community from the list.';
-    if (step === 1 && !locationSelected) return isStreet ? 'Choose a street from the list.' : 'Choose a pickup address from the list.';
-    if (step === 2 && !reason) return 'Choose a reason.';
-    if (step === 2 && reasonCode === 'other' && !otherReason.trim()) return 'Describe what is blocking access.';
-    if (step === 2 && reason) return vehiclePlateError(reason, vehiclePlates);
-    if (step === 3) return photoSelectionError(photos.map((photo) => photo.file));
+  function stepError(index: number) {
+    if (index === 0 && !scope) return 'Choose what is blocked.';
+    if (index === 1 && !communitySelected) return 'Choose a community from the list.';
+    if (index === 1 && !locationSelected) return isStreet ? 'Choose a street from the list.' : 'Choose a pickup address from the list.';
+    if (index === 2 && !reason) return 'Choose a reason.';
+    if (index === 2 && reasonCode === 'other' && !otherReason.trim()) return 'Describe what is blocking access.';
+    if (index === 2 && reason) return vehiclePlateError(reason, vehiclePlates);
+    if (index === 3) return photoSelectionError(photos.map((photo) => photo.file));
     return '';
   }
 
   async function handleNext(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busyRef.current) return;
-    const validationError = stepError();
-    if (validationError) { setError(validationError); return; }
-    if (step < 4) { goTo(step + 1); return; }
-    if (!employeeName.trim()) { setError('Enter your name.'); return; }
+    if (!validateThrough(Math.min(step, 3))) return;
+    if (step < 4) { goTo(furthestStep === 4 ? 4 : step + 1); return; }
+    if (!employeeName.trim()) { setError('Sign in again so your name can be added to this report.'); return; }
     const payload = {
       recordType: 'daily', category: 'Blocked call', scope,
       registeredCommunity: community.trim(), siteAddress: location.trim(),
@@ -153,9 +174,8 @@ export default function BlockedCallWizard({
       const response = await reportingFetch(appPath('/api/records'), { method: 'POST', body: form });
       const result = await response.json().catch(() => ({})) as { record?: ReportRecord; error?: string };
       if (!response.ok || !result.record) throw new Error(result.error || 'Your report could not be saved. Please try again.');
-      try { window.localStorage.setItem(DRIVER_PREFERENCE, employeeName.trim()); } catch { /* Optional device preference. */ }
       setSavedRecord(result.record);
-      onSaved(result.record);
+      onSaved?.(result.record);
       photoRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
       photoRef.current = [];
       setPhotos([]);
@@ -172,7 +192,8 @@ export default function BlockedCallWizard({
     setNotes(''); setPhotos([]); setError(''); setSavedRecord(null); setConfirmExit(false);
     submissionRef.current = null;
     setLocationSelected(false);
-    goTo(0);
+    setFurthestStep(0);
+    showStep(0);
   }
 
   function requestClose() {
@@ -210,22 +231,23 @@ export default function BlockedCallWizard({
             <div className="driver-step-top"><span>Daily reporting · Blocked call</span><span>Step {step + 1} of {STEPS.length}</span></div>
             <ol className="driver-progress" aria-label="Report progress">
               {STEPS.map((label, index) => (
-                <li key={label} className={index <= step ? 'is-reached' : ''} aria-current={index === step ? 'step' : undefined}>
-                  <span className="driver-progress-line" /><span>{label}</span>
+                <li key={label} className={index <= furthestStep ? 'is-reached' : ''}>
+                  <button type="button" onClick={() => goTo(index)} disabled={saving || index > furthestStep} aria-current={index === step ? 'step' : undefined} aria-label={`Go to ${label.toLowerCase()} step`}>
+                    <span className="driver-progress-line" /><span>{label}</span>
+                  </button>
                 </li>
               ))}
             </ol>
 
             <section className="driver-card" aria-busy={saving}>
               <div className="driver-card-heading">
-                {step > 0 ? <button className="driver-back" type="button" onClick={() => goTo(step - 1)} disabled={saving}>← Back</button> : null}
                 <h1 ref={headingRef} tabIndex={-1}>{TITLES[step]}</h1>
                 <p>{[
                   'Choose the area you could not service.',
                   isStreet ? 'Search and select the community and street.' : 'Search and select the community and pickup address.',
                   'Tap the reason that fits best.',
                   'Show the blockage. One photo is required.',
-                  'Check the details and add your name.',
+                  'Check the details and select the service. Your name is filled in from your account.',
                 ][step]}</p>
               </div>
 
@@ -320,17 +342,18 @@ export default function BlockedCallWizard({
                   {step === 4 ? (
                     <div className="driver-field-stack">
                       <dl className="driver-review">
-                        <div><dt>{scope && blockageScopeLabel(scope)}</dt><dd><strong>{location}</strong><span>{community}</span>{isStreet && (streetFrom || streetTo) ? <small>{[streetFrom && `From ${streetFrom}`, streetTo && `to ${streetTo}`].filter(Boolean).join(' ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(1)} aria-label="Edit location">Edit</button></div>
+                        <div><dt>Blockage type</dt><dd>{scope && blockageScopeLabel(scope)}</dd><button className="text-button" type="button" onClick={() => goTo(0)} aria-label="Edit blockage type">Edit</button></div>
+                        <div><dt>Location</dt><dd><strong>{location}</strong><span>{community}</span>{isStreet && (streetFrom || streetTo) ? <small>{[streetFrom && `From ${streetFrom}`, streetTo && `to ${streetTo}`].filter(Boolean).join(' ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(1)} aria-label="Edit location">Edit</button></div>
                         <div><dt>Reason</dt><dd>{reasonLabel}{reason?.requiresVehiclePlate ? <small>Plates: {normalizedVehiclePlates(vehiclePlates).join(', ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(2)} aria-label="Edit reason">Edit</button></div>
                         <div><dt>Photos</dt><dd>{photos.length} attached</dd><button className="text-button" type="button" onClick={() => goTo(3)} aria-label="Edit photos">Edit</button></div>
                       </dl>
-                      <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} onChange={(event) => setEmployeeName(event.target.value)} autoComplete="name" maxLength={250} required /><small>Remembered on this device for your next report.</small></label>
+                      <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} readOnly aria-describedby="driver-name-hint" /><small id="driver-name-hint">From your signed-in account.</small></label>
+                      <label htmlFor="driver-service">Service<select id="driver-service" value={serviceType} onChange={(event) => setServiceType(event.target.value)}><option value="">Select if known</option>{['Recycling', 'Waste', 'Organics', 'Communal', 'Other'].map((service) => <option key={service}>{service}</option>)}</select></label>
                       <details className="driver-optional">
                         <summary>Add a note or route <span>(optional)</span></summary>
                         <div className="driver-field-stack">
                           <label htmlFor="driver-notes">Anything else?<textarea id="driver-notes" value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} maxLength={1500} /></label>
                           <label htmlFor="driver-route">Route number<input id="driver-route" value={routeNumber} onChange={(event) => setRouteNumber(event.target.value)} maxLength={80} /></label>
-                          <label htmlFor="driver-service">Service<select id="driver-service" value={serviceType} onChange={(event) => setServiceType(event.target.value)}><option value="">Select if known</option>{['Recycling', 'Waste', 'Organics', 'Communal', 'Other'].map((service) => <option key={service}>{service}</option>)}</select></label>
                         </div>
                       </details>
                       <p className="driver-auto-note">Date and time will be recorded automatically.</p>
@@ -339,7 +362,10 @@ export default function BlockedCallWizard({
                 </fieldset>
 
                 {step > 0 ? <div className="driver-next">
-                  <button className="button button--primary button--wide" type="submit" disabled={saving || (step === 2 && !reason) || (step === 3 && photos.length === 0)}>{saving ? 'Saving report and photos…' : step === 4 ? 'Submit blocked call' : 'Continue →'}</button>
+                  <div className="driver-navigation">
+                    <button className="button button--secondary" type="button" onClick={() => goTo(step - 1)} disabled={saving}>← Back</button>
+                    <button className="button button--primary button--wide" type="submit" disabled={saving || (step === 2 && !reason) || (step === 3 && photos.length === 0)}>{saving ? 'Saving report and photos…' : step === 4 ? 'Submit blocked call' : furthestStep === 4 ? 'Return to review' : 'Continue →'}</button>
+                  </div>
                   {saving ? <p role="status">Keep this screen open while your photos upload.</p> : null}
                 </div> : null}
               </form>

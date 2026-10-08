@@ -27,6 +27,7 @@ export interface LoginFlow {
   verifier: string;
   policy: string;
   redirectUri: string;
+  returnTo?: string;
 }
 
 const processAuth = globalThis as typeof globalThis & { cmAuthStore?: { directory: string; database: DatabaseSync } };

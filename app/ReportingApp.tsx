@@ -953,7 +953,7 @@ function RecordDetails({
   );
 }
 
-export default function ReportingApp({ user = null, notificationsEnabled = false }: { user?: SignedInUser | null; notificationsEnabled?: boolean }) {
+export default function ReportingApp({ user = null, reporterName = user?.name || 'Local development', notificationsEnabled = false }: { user?: SignedInUser | null; reporterName?: string; notificationsEnabled?: boolean }) {
   const [view, setView] = useState<View>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<ReportRecord[]>([]);
@@ -1014,7 +1014,7 @@ export default function ReportingApp({ user = null, notificationsEnabled = false
   const viewLabel = NAV_ITEMS.find((item) => item.id === view)?.label ?? 'Dashboard';
 
   if (formMode === 'daily') {
-    return <BlockedCallWizard onClose={() => setFormMode(null)} onSaved={handleCreated} />;
+    return <BlockedCallWizard reporterName={reporterName} onClose={() => setFormMode(null)} onSaved={handleCreated} />;
   }
 
   return (

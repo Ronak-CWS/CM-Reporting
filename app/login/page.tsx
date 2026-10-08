@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { appPath } from '../../lib/app-path.js';
 import { guestLoginConfig, microsoftConfig, publicOrigin } from '../../lib/auth-config';
 import { signedInUser } from '../../lib/request-access';
+import { safeReturnTo, withReturnTo } from '../../lib/auth-navigation';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,6 +19,7 @@ const messages: Record<string, string> = {
 
 export default async function Login({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const params = await searchParams;
+  const returnTo = safeReturnTo(params.returnTo);
   let ready = false;
   let authenticated = false;
   let guestAvailable = false;
@@ -27,7 +29,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
     authenticated = !!signedInUser(new Request(`${publicOrigin()}${appPath('/login')}`, { headers: await headers() }));
   } catch { /* Configuration and infrastructure errors are never rendered to visitors. */ }
   try { guestAvailable = !!guestLoginConfig(); } catch { /* Only show a fully configured guest option. */ }
-  if (authenticated && params.loggedOut !== '1') redirect(appPath('/'));
+  if (authenticated && params.loggedOut !== '1') redirect(appPath(returnTo));
   const error = typeof params.error === 'string' && Object.hasOwn(messages, params.error) ? messages[params.error] : '';
   return (
     <main className="login-shell">
@@ -39,7 +41,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
         {params.loggedOut === '1' ? <p role="status" className="login-message">You have signed out of CM Reporting.</p> : null}
         {error ? <p role="alert" className="login-message login-message--error">{error}</p> : null}
         {!ready ? <p role="status" className="login-message">Microsoft sign-in is being set up. Please contact the office for access.</p> : (
-          <a className="microsoft-signin" href={appPath('/api/auth/microsoft/start')}>
+          <a className="microsoft-signin" href={withReturnTo('/api/auth/microsoft/start', returnTo)}>
             <svg width="21" height="21" viewBox="0 0 21 21" aria-hidden="true">
               <path fill="#f25022" d="M0 0h10v10H0z" /><path fill="#7fba00" d="M11 0h10v10H11z" />
               <path fill="#00a4ef" d="M0 11h10v10H0z" /><path fill="#ffb900" d="M11 11h10v10H11z" />
@@ -48,7 +50,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
           </a>
         )}
         {guestAvailable ? (
-          <form className="guest-signin" action={appPath('/api/auth/guest')} method="post">
+          <form className="guest-signin" action={withReturnTo('/api/auth/guest', returnTo)} method="post">
             <p>Temporary guest access for testing</p>
             <label htmlFor="guest-password">Guest password</label>
             <input id="guest-password" name="password" type="password" autoComplete="current-password" required maxLength={128} />

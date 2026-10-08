@@ -1,10 +1,11 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BlockedCallWizard from '../app/components/BlockedCallWizard';
 import { createLocationCatalogue } from '../lib/location-catalogue';
 import locations from './fixtures/service-locations.json';
+import { SESSION_RESTORED_EVENT } from '../lib/reporting-fetch';
 
 vi.mock('next/image', () => ({ default: () => null }));
 const catalogue = createLocationCatalogue(locations);
@@ -38,9 +39,63 @@ async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
 }
 
 describe('simple driver flow', () => {
+  it('keeps service, notes, route and photos when editing an earlier step and uses the signed-in name', async () => {
+    window.localStorage.setItem('cm-reporting-driver-name', 'Previous device user');
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} />);
+    const user = await reachPhotos('street');
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    const name = screen.getByLabelText(/Your name/);
+    expect(name).toHaveProperty('value', 'Test Driver');
+    expect(name).toHaveProperty('readOnly', true);
+    await user.type(name, 'Someone else');
+    expect(name).toHaveProperty('value', 'Test Driver');
+    expect(screen.getByLabelText('Service').closest('details')).toBeNull();
+    await user.selectOptions(screen.getByLabelText('Service'), 'Waste');
+    await user.click(screen.getByText('Add a note or route'));
+    await user.type(screen.getByLabelText('Anything else?'), 'Office notified');
+    await user.type(screen.getByLabelText('Route number'), 'R12');
+    await user.click(screen.getByRole('button', { name: 'Go to location step' }));
+    expect(screen.getByLabelText('Street name')).toHaveProperty('value', 'Test Street');
+    await user.click(screen.getByRole('button', { name: 'Return to review' }));
+    expect(screen.getByText('1 attached')).toBeTruthy();
+    expect(screen.getByLabelText('Service')).toHaveProperty('value', 'Waste');
+    expect(screen.getByLabelText('Anything else?')).toHaveProperty('value', 'Office notified');
+    expect(screen.getByLabelText('Route number')).toHaveProperty('value', 'R12');
+    act(() => window.dispatchEvent(new CustomEvent(SESSION_RESTORED_EVENT, { detail: 'Reauthenticated Driver' })));
+    expect(screen.getByLabelText(/Your name/)).toHaveProperty('value', 'Reauthenticated Driver');
+    await user.click(screen.getByRole('button', { name: 'Edit photos' }));
+    await user.click(screen.getByRole('button', { name: 'Remove photo 1' }));
+    await user.click(screen.getByRole('button', { name: 'Go to review step' }));
+    expect(screen.getByRole('heading', { name: 'Add a photo' })).toBeTruthy();
+    expect(screen.getByRole('alert').textContent).toContain('photo');
+  });
+
+  it('revalidates changed blockage types before returning to review without losing photos', async () => {
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} />);
+    expect(screen.getByRole('button', { name: 'Go to review step' })).toHaveProperty('disabled', true);
+    const user = await reachPhotos();
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'blockage.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    await user.click(screen.getByRole('button', { name: 'Edit blockage type' }));
+    await user.click(screen.getByRole('button', { name: /A street \/ street block/ }));
+    await user.click(screen.getByRole('button', { name: 'Go to review step' }));
+    expect(screen.getByRole('alert').textContent).toContain('Choose a street');
+    await user.type(screen.getByLabelText('Street name'), 'Test Street');
+    await user.click(await screen.findByRole('option', { name: 'Test Street' }));
+    await user.click(screen.getByRole('button', { name: 'Return to review' }));
+    expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Flooded street/ }));
+    await user.click(screen.getByRole('button', { name: 'Return to review' }));
+    expect(screen.getByRole('heading', { name: 'Ready to submit?' })).toBeTruthy();
+    expect(screen.getByText('1 attached')).toBeTruthy();
+    expect(screen.getByText('Flooded street')).toBeTruthy();
+    expect(screen.queryByText('Plates: ABC123')).toBeNull();
+  });
+
   it('opens the native camera from the entire empty photo area and attaches its photo', async () => {
     vi.spyOn(navigator, 'userAgent', 'get').mockReturnValue('Android');
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = await reachPhotos('street');
     const input = screen.getByLabelText('Take a blockage photo', { selector: 'input' });
     const click = vi.spyOn(input, 'click').mockImplementation(() => {});
@@ -52,7 +107,7 @@ describe('simple driver flow', () => {
     expect(screen.queryByRole('button', { name: 'Open camera' })).toBeNull();
   });
   it('shows one task at a time and preserves location on Back', async () => {
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     expect(screen.getByRole('heading', { name: 'What is blocked?' })).toBeTruthy();
     expect(screen.queryByLabelText('Community')).toBeNull();
     const user = await reachPhotos();
@@ -65,7 +120,7 @@ describe('simple driver flow', () => {
   });
 
   it('requires and removes photos for a street report', async () => {
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = await reachPhotos('street');
     expect((screen.getByLabelText('Take a blockage photo', { selector: 'input' }) as HTMLInputElement).getAttribute('capture')).toBe('environment');
     await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
@@ -81,11 +136,12 @@ describe('simple driver flow', () => {
       ok: true, json: async () => ({ record: { id: 'saved', referenceNumber: 'CM-DAY-TEST', siteAddress: '123 Test Street', registeredCommunity: 'Test community', photos: [{ id: 'photo' }] } }),
     });
     vi.stubGlobal('fetch', (url: string, options: unknown) => url.startsWith('/api/locations') ? Promise.resolve(locationResponse(url)) : fetchMock(url, options));
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={onSaved} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={onSaved} />);
     const user = await reachPhotos('street');
     await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
     await user.click(screen.getByRole('button', { name: /Continue/ }));
-    await user.type(screen.getByLabelText(/Your name/), 'Test Driver');
+    expect(screen.getByLabelText(/Your name/)).toHaveProperty('value', 'Test Driver');
+    expect(screen.getByLabelText(/Your name/)).toHaveProperty('readOnly', true);
     await user.click(screen.getByRole('button', { name: 'Submit blocked call' }));
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('entries and photos are still here'));
     expect(screen.getByText('1 attached')).toBeTruthy();
@@ -101,7 +157,7 @@ describe('simple driver flow', () => {
 
   it('asks before discarding an unsubmitted report', async () => {
     const onClose = vi.fn();
-    render(<BlockedCallWizard onClose={onClose} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={onClose} onSaved={vi.fn()} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /A pickup location/ }));
     await user.click(screen.getByRole('button', { name: 'Close' }));
@@ -111,7 +167,7 @@ describe('simple driver flow', () => {
   });
 
   it('requires a selected location and clears the address when the community changes', async () => {
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = userEvent.setup();
     await user.click(screen.getByRole('button', { name: /A pickup location/ }));
     await user.type(screen.getByLabelText('Community'), 'Test community');
@@ -130,7 +186,7 @@ describe('simple driver flow', () => {
   });
 
   it('requires two different plates for multiple vehicles and keeps additional plates on review', async () => {
-    render(<BlockedCallWizard onClose={vi.fn()} onSaved={vi.fn()} />);
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = await reachPhotos();
     await user.click(screen.getByRole('button', { name: /Back/ }));
     await user.click(screen.getByRole('button', { name: 'Change' }));

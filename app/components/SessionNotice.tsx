@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { appPath } from '../../lib/app-path.js';
-import { SESSION_EXPIRED_EVENT } from '../../lib/reporting-fetch';
+import { SESSION_EXPIRED_EVENT, SESSION_RESTORED_EVENT } from '../../lib/reporting-fetch';
 
 export default function SessionNotice() {
   const [expired, setExpired] = useState(false);
@@ -18,7 +18,11 @@ export default function SessionNotice() {
     setChecking(true);
     try {
       const result = await fetch(appPath('/api/auth/session'), { cache: 'no-store' });
-      if (result.ok) { setExpired(false); setMessage(''); }
+      if (result.ok) {
+        const session = await result.json() as { user?: { name?: unknown } };
+        window.dispatchEvent(new CustomEvent(SESSION_RESTORED_EVENT, { detail: session.user?.name }));
+        setExpired(false); setMessage('');
+      }
       else setMessage('Please finish signing in, then check again.');
     } catch { setMessage('Could not check sign-in. Please try again.'); }
     finally { setChecking(false); }

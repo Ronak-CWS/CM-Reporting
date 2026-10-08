@@ -1,6 +1,7 @@
 import * as oidc from 'openid-client';
 import { GUID, microsoftConfig } from './auth-config';
 import type { LoginFlow, SignedInUser } from './auth-store';
+import { safeReturnTo } from './auth-navigation';
 
 let cached: { key: string; config: Promise<oidc.Configuration> } | undefined;
 
@@ -18,11 +19,11 @@ async function provider() {
   return cached.config;
 }
 
-export async function beginMicrosoftLogin() {
+export async function beginMicrosoftLogin(returnTo: unknown = '/') {
   const settings = microsoftConfig();
   const flow: LoginFlow = {
     state: oidc.randomState(), nonce: oidc.randomNonce(), verifier: oidc.randomPKCECodeVerifier(),
-    policy: settings.policy, redirectUri: settings.redirectUri,
+    policy: settings.policy, redirectUri: settings.redirectUri, returnTo: safeReturnTo(returnTo),
   };
   const location = oidc.buildAuthorizationUrl(await provider(), {
     redirect_uri: settings.redirectUri, scope: 'openid profile email', response_mode: 'query',

@@ -1,10 +1,10 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { appPath } from '../../lib/app-path.js';
 import BlockedCallWizard from '../components/BlockedCallWizard';
 
 export default function BlockedCallEntry({ reporterName }: { reporterName: string }) {
   const router = useRouter();
-  return <BlockedCallWizard reporterName={reporterName} onClose={() => router.push(appPath('/'))} />;
+  // Next's client router adds the configured /cm-reporting base path itself.
+  return <BlockedCallWizard reporterName={reporterName} onClose={() => router.push('/')} />;
 }

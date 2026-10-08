@@ -8,7 +8,7 @@ Login now uses company Microsoft accounts through single-tenant Entra SSO. [Micr
 
 Copy `.env.example` to a private environment file and configure the dedicated CM Reporting registration and a new client secret. The template contains the company tenant ID but leaves the client ID and secret blank. Microsoft mode is the default and unconfigured access fails closed. Local UI work without Entra requires explicit `CM_AUTH_MODE=development`, which production rejects. IIS installation and real employee sign-in remain deployment checks.
 
-Access requires the configured company tenant and tenant-member claim. A custom app role is checked only when `CM_ENTRA_REQUIRED_ROLE` is explicitly set; leave it blank for all tenant members. Every data handler protects records, photos, address searches and exports. Sessions persist across restarts and expire after eight hours; logout revokes the current session. Expired sessions offer sign-in in a separate tab to preserve the current form. Tenant members receive the existing reporting access; office/driver roles remain shared.
+Access requires the configured company tenant and tenant-member claim. A custom app role is checked only when `CM_ENTRA_REQUIRED_ROLE` is explicitly set; leave it blank for all tenant members. Every data handler protects records, photos, address searches and exports. Microsoft sessions persist across restarts and expire seven days after sign-in; activity does not extend them, and logout revokes the current session. Expired sessions offer sign-in in a separate tab to preserve the current form. Tenant members receive the existing reporting access; office/driver roles remain shared.
 
 ## Driver workflow
 

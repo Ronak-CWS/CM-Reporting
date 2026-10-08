@@ -7,7 +7,7 @@ import { promisify } from 'node:util';
 import { fileURLToPath } from 'node:url';
 import { NextRequest } from 'next/server';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
-import { microsoftConfig, FLOW_COOKIE, SESSION_COOKIE, SESSION_SECONDS } from '../lib/auth-config';
+import { microsoftConfig, FLOW_COOKIE, SESSION_COOKIE } from '../lib/auth-config';
 import { closeAuthStore, readSession } from '../lib/auth-store';
 import { startMicrosoftLogin, microsoftCallback, logout } from '../lib/auth-handlers';
 import { accessFailure, requestCookie } from '../lib/request-access';
@@ -365,14 +365,27 @@ describe('local sessions and protected reporting routes', () => {
     expect(accessFailure(request('/api/records', sessionCookie))?.status).toBe(401);
   });
 
-  it('expires sessions and invalidates sessions when the registration/access policy changes', async () => {
+  it('keeps Microsoft sessions for seven days without sliding renewal', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    const signedInAt = Date.now();
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const { response, sessionCookie } = await login();
+    expect(response.cookies.get(SESSION_COOKIE)?.maxAge).toBe(7 * 24 * 60 * 60);
+
+    vi.setSystemTime(signedInAt + 24 * 60 * 60 * 1000);
+    expect(accessFailure(request('/api/records', sessionCookie))).toBeNull();
+    vi.setSystemTime(signedInAt + sevenDaysMs - 1000);
+    expect(accessFailure(request('/api/records', sessionCookie))).toBeNull();
+    vi.setSystemTime(signedInAt + sevenDaysMs);
+    expect(accessFailure(request('/api/records', sessionCookie))?.status).toBe(401);
+  });
+
+  it('invalidates sessions when the registration/access policy changes', async () => {
     const { sessionCookie } = await login();
     vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', 'CMReporting.OtherAccess');
     expect(accessFailure(request('/api/records', sessionCookie))?.status).toBe(401);
     vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', 'CMReporting.Access');
-    vi.useFakeTimers({ toFake: ['Date'] });
-    vi.setSystemTime(Date.now() + (SESSION_SECONDS + 1) * 1000);
-    expect(accessFailure(request('/api/records', sessionCookie))?.status).toBe(401);
+    expect(accessFailure(request('/api/records', sessionCookie))).toBeNull();
   });
 
   it('never enables development bypass or HTTP cookies in production', () => {

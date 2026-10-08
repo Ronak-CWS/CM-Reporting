@@ -1,7 +1,8 @@
 import { createHash } from 'node:crypto';
 import { appPath } from './app-path.js';
 
-export const SESSION_SECONDS = 8 * 60 * 60;
+// Fixed Microsoft session lifetime; activity does not renew it.
+export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 export const FLOW_SECONDS = 10 * 60;
 export const GUEST_SESSION_SECONDS = 60 * 60;
 export const SESSION_COOKIE = 'cm_reporting_session';

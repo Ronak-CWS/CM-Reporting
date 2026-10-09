@@ -85,7 +85,6 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
     ['Employee title', input.employeeTitle],
     ['Customer name', input.customerName],
     ['Customer address', input.customerAddress],
-    ['Customer contact information', input.customerContactInformation],
   ];
   const missingField = [
     ...commonRequired,

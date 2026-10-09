@@ -67,6 +67,7 @@ describe('complaint Other explanations', () => {
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
     expect(record.categoryOtherReason).toBe('');
+    expect(record.customerContactInformation).toBe(complaint.customerContactInformation);
   });
   it('preserves old complaints when the additional storage is created automatically', async () => {
     const { records } = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };
@@ -109,13 +110,13 @@ describe('complaint communities', () => {
     expect(response.status).toBe(400);
     expect(await response.json()).toEqual({ error: 'Choose a registered community from the service list.' });
   });
-  it('saves and reloads the catalogue spelling without requiring a pickup address', async () => {
-    const response = await submit({ registeredCommunity: '  test COMMUNITY  ' });
+  it('saves and reloads a complaint with the catalogue spelling and no contact information', async () => {
+    const response = await submit({ registeredCommunity: '  test COMMUNITY  ', customerContactInformation: undefined });
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
-    expect(record.registeredCommunity).toBe('Test community');
+    expect(record).toMatchObject({ registeredCommunity: 'Test community', customerContactInformation: '' });
     const listed = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };
-    expect(listed.records.find(item => item.id === record.id)?.registeredCommunity).toBe('Test community');
+    expect(listed.records.find(item => item.id === record.id)).toMatchObject({ registeredCommunity: 'Test community', customerContactInformation: '' });
   });
   it('fails closed if the community catalogue is unavailable', async () => {
     runtime.catalogueAvailable = false;

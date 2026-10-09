@@ -753,7 +753,7 @@ function ComplaintFormModal({
               <div className="form-grid">
                 <Field label="Customer name" name="customerName" required><input id="customerName" name="customerName" type="text" required /></Field>
                 <Field label="Address" name="customerAddress" required><input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required /></Field>
-                <Field label="Contact information" name="customerContactInformation" required hint="Phone number, email address, or other preferred contact."><input id="customerContactInformation" name="customerContactInformation" type="text" required /></Field>
+                <Field label="Contact information" name="customerContactInformation" hint="Optional. Phone number, email address, or other preferred contact, if provided."><input id="customerContactInformation" name="customerContactInformation" type="text" /></Field>
                 <Field label="Assigned to" name="assignedTo"><input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" /></Field>
               </div>
             </fieldset>

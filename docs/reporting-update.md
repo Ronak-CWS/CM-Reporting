@@ -1,6 +1,6 @@
 # Deploy the reporting update
 
-This update removes temporary guest access, adds formatted Excel exports, and updates the registers to query records in batches of 50. Microsoft sign-in configuration and callback URLs stay the same.
+This update adds formatted Excel exports and updates the registers to query records in batches of 50. Temporary guest access is available again when enabled in the private server environment; see [guest access](guest-testing.md). Microsoft sign-in configuration and callback URLs stay the same.
 
 Run the following in an elevated PowerShell window on the application server, after this change is available on `origin/main`. It stops only the CMReporting service; other IIS applications are unaffected. The commands stop at the first failure and leave the service stopped if installation or compilation fails, so the build error can be resolved before starting it.
 
@@ -27,6 +27,6 @@ curl.exe --max-time 10 -I 'http://127.0.0.1:3013/cm-reporting/login'
 
 `npm.cmd ci` is required for the new Excel export dependency. Private environment files, the reports database, authentication database and photos must be retained. No manual database migration or deletion is needed; the application creates the pagination indexes automatically.
 
-The retired `CM_GUEST_LOGIN_ENABLED`, `CM_GUEST_LOGIN_PASSWORD` and `CM_GUEST_LOGIN_EXPIRES_AT` variables can be removed from the server environment. Leaving them set does not restore guest access. Old guest sessions must sign in through Microsoft. Existing Microsoft sessions keep their normal expiry.
+To restore temporary guest login, retain the existing `CM_GUEST_LOGIN_PASSWORD`, set `CM_GUEST_LOGIN_ENABLED=true`, and ensure `CM_GUEST_LOGIN_EXPIRES_AT` is in the future. Existing guest cookies from before removal remain invalid; users sign in again with the same password. Set `CM_GUEST_LOGIN_ENABLED=false` and restart to disable guest access and revoke its sessions. Existing Microsoft sessions keep their normal expiry.
 
 After deployment, check the HTTPS login, complaint address column, optional customer name, priority and date filters, scrolling beyond 50 records, and both Excel downloads. A successful local build does not verify the IIS deployment.

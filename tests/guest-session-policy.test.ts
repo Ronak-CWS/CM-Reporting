@@ -22,7 +22,7 @@ vi.mock('../lib/location-catalogue-store', async () => {
   return { getLocationCatalogue: () => catalogue };
 });
 
-import { POST as retiredGuestLogin } from '../app/api/auth/guest/route';
+import { POST as guestLogin } from '../app/api/auth/guest/route';
 import { GET as getReports, POST as submitReport } from '../app/api/records/route';
 import { GET as getExport } from '../app/api/export/route';
 import { GET as getLocations } from '../app/api/locations/route';
@@ -37,7 +37,7 @@ function request(route = '/', init: RequestInit = {}, cookie = '') {
 }
 const employee = { tenantId: '11111111-2222-3333-4444-555555555555', objectId: randomUUID(), name: 'Signed-in Driver', username: 'driver@example.invalid' };
 
-beforeAll(async () => { root = await mkdtemp(path.join(tmpdir(), 'cm-guest-retirement-')); });
+beforeAll(async () => { root = await mkdtemp(path.join(tmpdir(), 'cm-guest-policy-')); });
 afterAll(async () => { if (root) await rm(root, { recursive: true, force: true }); });
 beforeEach(() => {
   directory = path.join(root, randomUUID());
@@ -50,7 +50,7 @@ beforeEach(() => {
   vi.stubEnv('CM_ENTRA_CLIENT_SECRET', 'test-only-microsoft-secret-not-a-real-credential');
   vi.stubEnv('CM_ENTRA_REQUIRED_ROLE', '');
   vi.stubEnv('CM_DATA_DIR', directory);
-  // Simulate an existing deployment that still has all the retired settings.
+  // Reuse the server's original guest environment settings without rotating its password.
   vi.stubEnv('CM_GUEST_LOGIN_ENABLED', 'true');
   vi.stubEnv('CM_GUEST_LOGIN_PASSWORD', 'test-only-previous-guest-password');
   vi.stubEnv('CM_GUEST_LOGIN_EXPIRES_AT', new Date(Date.now() + 86400_000).toISOString());
@@ -62,15 +62,20 @@ afterEach(() => {
   vi.unstubAllEnvs();
 });
 
-it('cannot re-enable the retired endpoint with old environment settings', async () => {
+it('restores login with the existing password and guest environment settings', async () => {
   expect(() => validateAuthenticationConfig()).not.toThrow();
-  const response = retiredGuestLogin();
-  expect(response.status).toBe(410);
-  expect(response.headers.get('set-cookie')).toBeNull();
-  expect(await response.json()).toHaveProperty('error', expect.stringContaining('Sign in with Microsoft'));
+  const response = await guestLogin(request('/api/auth/guest', {
+    method: 'POST', headers: { origin }, body: new URLSearchParams({ password: process.env.CM_GUEST_LOGIN_PASSWORD! }),
+  }));
+  expect(response.status).toBe(303);
+  expect(response.headers.get('location')).toBe('/cm-reporting/');
+  const token = response.cookies.get(SESSION_COOKIE)!.value;
+  expect(signedInUser(request('/', {}, `${SESSION_COOKIE}=${token}`))).toEqual({
+    kind: 'guest', name: 'Guest user', username: 'Temporary guest access',
+  });
 });
 
-it.each(['guest:legacy-policy', 'current'])('rejects stored guest identities with policy %s while retaining Microsoft sessions', async (policy) => {
+it.each(['guest:legacy-policy', 'current'])('rejects legacy or Microsoft-policy guest identities with policy %s', async (policy) => {
   const settings = microsoftConfig();
   const memberToken = createSession(employee, settings.policy);
   const guestToken = createSession(employee, settings.policy);

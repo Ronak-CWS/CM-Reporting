@@ -35,7 +35,7 @@ export function proxy(request: NextRequest) {
   const response = NextResponse.next();
   response.headers.set('Cache-Control', 'private, no-store');
   response.headers.set('X-Content-Type-Options', 'nosniff');
-  // Native sign-out POSTs need a non-null Origin for CSRF checks.
+  // Native guest-login and sign-out POSTs need a non-null Origin for CSRF checks.
   // Keep referrers within this origin; auth redirects separately use no-referrer.
   response.headers.set('Referrer-Policy', 'same-origin');
   response.headers.set('X-Frame-Options', 'DENY');

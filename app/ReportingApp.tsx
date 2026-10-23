@@ -1056,6 +1056,12 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
         </header>
 
         <div className="content">
+          {user?.kind === 'guest' ? (
+            <p className="guest-session-notice" role="status">
+              <strong>Temporary guest session.</strong> Reports and photos are saved in this app.
+              {notificationsEnabled ? ' Submissions also send notification emails.' : ''}
+            </p>
+          ) : null}
           {loadError ? (
             <div className="load-error" role="alert">
               <span>{loadError}</span>

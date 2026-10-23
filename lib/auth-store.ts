@@ -13,7 +13,13 @@ export interface MicrosoftUser {
   username: string;
 }
 
-export type SignedInUser = MicrosoftUser;
+export interface GuestUser {
+  kind: 'guest';
+  name: string;
+  username: string;
+}
+
+export type SignedInUser = MicrosoftUser | GuestUser;
 
 export interface LoginFlow {
   state: string;
@@ -46,6 +52,9 @@ function database() {
         token_hash TEXT PRIMARY KEY, state_hash TEXT NOT NULL, flow_json TEXT NOT NULL, expires_at INTEGER NOT NULL
       );
       CREATE INDEX IF NOT EXISTS login_flows_expiry ON login_flows(expires_at);
+      CREATE TABLE IF NOT EXISTS guest_login_attempts (
+        policy TEXT PRIMARY KEY, attempts INTEGER NOT NULL, reset_at INTEGER NOT NULL
+      );
     `);
     processAuth.cmAuthStore = { directory, database: db };
   }
@@ -90,7 +99,9 @@ export function readSession(token: string, policy: string): SignedInUser | null 
     .get(hash(token), policy, now()) as { user_json: string } | undefined;
   if (!row) return null;
   const user = JSON.parse(row.user_json) as Record<string, unknown>;
-  // Retire legacy guest sessions even when an old cookie or environment survives deployment.
+  if (!user || typeof user !== 'object' || typeof user.name !== 'string' || typeof user.username !== 'string') return null;
+  // Guest identities belong only to the separately enabled guest session policy.
+  if (policy.startsWith('guest:')) return user.kind === 'guest' ? user as unknown as GuestUser : null;
   if (user.kind !== undefined && user.kind !== 'microsoft') return null;
   if (typeof user.tenantId !== 'string' || typeof user.objectId !== 'string' ||
       typeof user.name !== 'string' || typeof user.username !== 'string') return null;
@@ -99,6 +110,22 @@ export function readSession(token: string, policy: string): SignedInUser | null 
 
 export function deleteSession(token: string) {
   if (validToken(token)) database().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hash(token));
+}
+
+export function takeGuestLoginAttempt(policy: string) {
+  const db = database();
+  const current = now();
+  db.prepare('DELETE FROM guest_login_attempts WHERE reset_at <= ?').run(current);
+  // Persist the shared account limit across restarts and workers. Forwarded IP
+  // headers from the shared proxy are not trusted as a way around the limit.
+  const accepted = db.prepare(`
+    INSERT INTO guest_login_attempts VALUES (?, 1, ?)
+    ON CONFLICT(policy) DO UPDATE SET attempts = attempts + 1 WHERE attempts < 10
+    RETURNING reset_at
+  `).get(policy, current + 5 * 60);
+  if (accepted) return 0;
+  const row = db.prepare('SELECT reset_at FROM guest_login_attempts WHERE policy = ?').get(policy) as { reset_at: number } | undefined;
+  return Math.max(1, (row?.reset_at || current + 5 * 60) - current);
 }
 
 export function closeAuthStore() {

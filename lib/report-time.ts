@@ -1,4 +1,8 @@
 /** Store a timestamp with an explicit Mountain offset, including daylight saving. */
+export function edmontonDateKey(date = new Date()): string {
+  return edmontonTimestamp(date).slice(0, 10);
+}
+
 export function edmontonTimestamp(date = new Date()): string {
   const parts = Object.fromEntries(new Intl.DateTimeFormat('en-CA', {
     timeZone: 'America/Edmonton',

@@ -8,14 +8,15 @@ import BlockedCallWizard from './components/BlockedCallWizard';
 import LocationAutocomplete from './components/LocationAutocomplete';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
-import { exportDateRangeError } from '../lib/export-date-range';
+import DateFilter from './components/DateFilter';
+import { useRecordPage } from '../lib/use-record-page';
+import { dateFilterError, dateFilterParams, PRIORITIES, EMPTY_OVERVIEW, type DateFilter as DateFilterValue, type ReportingOverview } from '../lib/report-filters';
 import { blockageScopeLabel } from '../lib/blocked-call-options';
 import { COMPLAINT_CATEGORIES, COMPLAINT_OTHER_REASON_LIMIT, complaintCategoryError } from '../lib/complaint-options';
 import {
   type FormEvent,
   useCallback,
   useEffect,
-  useMemo,
   useRef,
   useState,
 } from 'react';
@@ -229,29 +230,20 @@ function EmptyState({
 
 function DashboardView({
   records,
+  overview,
   loading,
   onCreate,
   onOpenRecord,
   onChangeView,
 }: {
   records: ReportRecord[];
+  overview: ReportingOverview;
   loading: boolean;
   onCreate: (mode: RecordType) => void;
   onOpenRecord: (record: ReportRecord) => void;
   onChangeView: (view: View) => void;
 }) {
-  const todayKey = edmontonDateKey();
-  const todayRecords = records.filter((record) => record.occurredAt.slice(0, 10) === todayKey);
-  const todayComplaints = todayRecords.filter((record) => record.recordType === 'complaint');
-  const openActions = records.filter((record) => record.status !== 'Resolved');
-  const resolvedToday = records.filter(
-    (record) => record.resolvedAt.slice(0, 10) === todayKey,
-  );
-  const flaggedActions = openActions.filter(
-    (record) => record.priority === 'High' || record.priority === 'Urgent',
-  );
-  const communities = new Set(todayRecords.map((record) => record.registeredCommunity));
-  const recentRecords = records.slice(0, 5);
+  const recentRecords = records;
 
   return (
     <>
@@ -278,29 +270,29 @@ function DashboardView({
         <MetricCard
           label="Records today"
           icon="daily"
-          value={todayRecords.length}
-          detail={`${communities.size} registered ${communities.size === 1 ? 'community' : 'communities'}`}
+          value={overview.todayRecords}
+          detail={`${overview.todayCommunities} registered ${overview.todayCommunities === 1 ? 'community' : 'communities'}`}
           tone="accent"
         />
         <MetricCard
           label="Open actions"
           icon="clock"
-          value={openActions.length}
-          detail={`${flaggedActions.length} high priority`}
-          tone={flaggedActions.length ? 'warning' : 'default'}
+          value={overview.openActions}
+          detail={`${overview.flaggedActions} high priority`}
+          tone={overview.flaggedActions ? 'warning' : 'default'}
         />
         <MetricCard
           label="Complaints today"
           icon="complaints"
-          value={todayComplaints.length}
-          detail={`${todayComplaints.filter((record) => record.status !== 'Open').length} acknowledged or resolved`}
+          value={overview.todayComplaints}
+          detail={`${overview.acknowledgedComplaints} acknowledged or resolved`}
           tone="complaint"
         />
         <MetricCard
           label="Resolved today"
           icon="check"
-          value={resolvedToday.length}
-          detail={resolvedToday.length ? 'Corrective actions recorded' : 'No resolutions yet'}
+          value={overview.resolvedToday}
+          detail={overview.resolvedToday ? 'Corrective actions recorded' : 'No resolutions yet'}
           tone="positive"
         />
       </section>
@@ -356,8 +348,8 @@ function DashboardView({
               <p className="eyebrow">Scheduled release</p>
               <h2>Daily summary</h2>
             </div>
-            <span className={`status-pill ${flaggedActions.length ? 'status-pill--in-progress' : 'status-pill--resolved'}`}>
-              {flaggedActions.length ? 'Review needed' : 'On track'}
+            <span className={`status-pill ${overview.flaggedActions ? 'status-pill--in-progress' : 'status-pill--resolved'}`}>
+              {overview.flaggedActions ? 'Review needed' : 'On track'}
             </span>
           </div>
           <div className="summary-time">
@@ -365,9 +357,9 @@ function DashboardView({
             <span>America/Edmonton</span>
           </div>
           <div className="summary-facts">
-            <span><strong>{todayRecords.length}</strong> records today</span>
-            <span><strong>{openActions.length}</strong> open actions</span>
-            <span><strong>{flaggedActions.length}</strong> flagged</span>
+            <span><strong>{overview.todayRecords}</strong> records today</span>
+            <span><strong>{overview.openActions}</strong> open actions</span>
+            <span><strong>{overview.flaggedActions}</strong> flagged</span>
           </div>
           <p>
             Review today&apos;s register, then download the complete daily summary for
@@ -382,50 +374,42 @@ function DashboardView({
   );
 }
 
-function RegisterView({
-  mode,
-  records,
-  search,
-  statusFilter,
-  onSearchChange,
-  onStatusChange,
-  onCreate,
-  onOpenRecord,
+export function RegisterView({
+  mode, revision, onCreate, onOpenRecord,
 }: {
   mode: RecordType;
-  records: ReportRecord[];
-  search: string;
-  statusFilter: string;
-  onSearchChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
+  revision: number;
   onCreate: () => void;
   onOpenRecord: (record: ReportRecord) => void;
 }) {
   const isComplaint = mode === 'complaint';
-  const query = search.trim().toLowerCase();
-  const filteredRecords = records.filter((record) => {
-    if (record.recordType !== mode) return false;
-    if (statusFilter && record.status !== statusFilter) return false;
-    if (!query) return true;
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
+  const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
+  const dateError = dateFilterError(dates);
+  const params = dateFilterParams(dates);
+  params.set('type', mode);
+  if (search.trim()) params.set('q', search.trim());
+  if (statusFilter) params.set('status', statusFilter);
+  if (priorityFilter) params.set('priority', priorityFilter);
+  const page = useRecordPage(params.toString(), revision, !dateError);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const { loadMore, nextCursor, loading, error } = page;
+  useEffect(() => {
+    if (!nextCursor || loading || error || dateError || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMore();
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [dateError, error, loadMore, loading, nextCursor]);
+  const hasFilters = Boolean(search || statusFilter || priorityFilter || dates.mode !== 'all');
 
-    return [
-      record.referenceNumber,
-      record.registeredCommunity,
-      record.siteAddress,
-      record.routeNumber,
-      record.category,
-      record.issueDescription,
-      record.customerName,
-      record.customerContactInformation,
-      record.employeeName,
-      record.assignedTo,
-      record.status,
-      record.blockage?.reasonLabel || '',
-      record.blockage?.streetFrom || '',
-      record.blockage?.streetTo || '',
-      record.blockage?.vehiclePlates || '',
-    ].some((value) => value.toLowerCase().includes(query));
-  });
+  function clearFilters() {
+    setSearch(''); setStatusFilter(''); setPriorityFilter('');
+    setDates({ mode: 'all', from: '', to: '' });
+  }
 
   return (
     <>
@@ -433,63 +417,74 @@ function RegisterView({
         <div>
           <p className="eyebrow">{isComplaint ? 'Exhibit 7 register' : 'Operations register'}</p>
           <h1>{isComplaint ? 'Complaint reporting' : 'Daily reporting'}</h1>
-          <p className="page-intro">
-            {isComplaint
-              ? 'Record every inquiry and complaint with customer details, the response taken, and the date and time of resolution.'
-              : 'Pickup or street blocked? Add the location, choose a reason, and take a photo.'}
-          </p>
+          <p className="page-intro">{isComplaint
+            ? 'Track inquiries and complaints, customer addresses, and the actions taken to resolve them.'
+            : 'Pickup or street blocked? Add the location, choose a reason, and take a photo.'}</p>
         </div>
         <button className="button button--primary" type="button" onClick={onCreate}>
           {isComplaint ? 'Log complaint' : 'Report blocked call'}
         </button>
       </div>
 
-      <section className="register-toolbar" aria-label="Record filters">
+      <section className="register-filters" aria-label="Record filters">
         <label className="search-field">
           <span className="sr-only">Search records</span>
-          <span aria-hidden="true">⌕</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => onSearchChange(event.target.value)}
-            placeholder={isComplaint ? 'Search complaints, customers, or communities' : 'Search routes, events, or communities'}
-          />
+          <AppIcon name="search" size={20} />
+          <input type="search" value={search} maxLength={250} onChange={(event) => setSearch(event.target.value)}
+            placeholder={isComplaint ? 'Search reference, address, customer, or complaint' : 'Search reference, location, route, or report'} />
         </label>
-        <label className="compact-filter">
-          <span>Status</span>
-          <select value={statusFilter} onChange={(event) => onStatusChange(event.target.value)}>
-            <option value="">All statuses</option>
-            {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
-          </select>
-        </label>
-        <span className="record-count">{filteredRecords.length} {filteredRecords.length === 1 ? 'record' : 'records'}</span>
+        <div className="register-filter-row">
+          <label className="compact-filter">
+            <span>Status</span>
+            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <option value="">All statuses</option>
+              {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+            </select>
+          </label>
+          <label className="compact-filter">
+            <span>Priority</span>
+            <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+              <option value="">All priorities</option>
+              {PRIORITIES.map((priority) => <option key={priority}>{priority}</option>)}
+            </select>
+          </label>
+          <DateFilter value={dates} onChange={setDates} />
+          {hasFilters ? <button type="button" className="text-button clear-filters" onClick={clearFilters}>Clear filters</button> : null}
+        </div>
+        <div className="register-results" aria-live="polite" aria-atomic="true">
+          <span>{dateError ? 'Choose valid dates to view records' : page.loading && !page.records.length ? 'Finding records?'
+            : `Showing ${page.records.length.toLocaleString()} of ${page.total.toLocaleString()} ${page.total === 1 ? 'record' : 'records'}`}</span>
+          <span>Newest first ? 50 at a time</span>
+        </div>
       </section>
 
-      <section className="panel register-panel">
+      <section className={`panel register-panel${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={page.loading}>
         <div className="record-table__head" aria-hidden="true">
           <span>Reference</span>
           <span>{isComplaint ? 'Customer and community' : 'Event and community'}</span>
+          {isComplaint ? <span>Address</span> : null}
           <span>{isComplaint ? 'Inquiry or complaint' : 'Operational detail'}</span>
           <span>{isComplaint ? 'Resolution' : 'Owner'}</span>
           <span>Status</span>
         </div>
-        {filteredRecords.length ? (
+        {page.records.length ? (
           <div className="record-table">
-            {filteredRecords.map((record) => (
+            {page.records.map((record) => (
               <button className="record-row" type="button" key={record.id} onClick={() => onOpenRecord(record)}>
                 <span className="record-cell record-cell--reference">
                   <strong>{record.referenceNumber}</strong>
                   <small>{formatShortDateTime(record.occurredAt)}</small>
                 </span>
-                <span className="record-cell">
-                  <strong>{isComplaint ? record.customerName : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
+                <span className="record-cell record-cell--customer">
+                  <strong>{isComplaint ? record.customerName || 'Name not provided' : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
                   <small>{record.registeredCommunity}</small>
                 </span>
+                {isComplaint ? <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">Address</small><strong>{record.customerAddress || 'Not recorded'}</strong></span> : null}
                 <span className="record-cell record-cell--description">
                   <strong>{record.issueDescription}</strong>
-                  <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} photos` : ''].filter(Boolean).join(' · ') || 'No location details'}</small>
+                  <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} photos` : ''].filter(Boolean).join(' ? ') || 'No location details'}</small>
                 </span>
-                <span className="record-cell">
+                <span className="record-cell record-cell--resolution">
                   <strong>{isComplaint ? record.resolutionDescription || 'Pending' : record.assignedTo || 'Unassigned'}</strong>
                   <small>{isComplaint ? resolutionTiming(record) : record.correctiveAction || 'No action recorded'}</small>
                 </span>
@@ -500,112 +495,76 @@ function RegisterView({
               </button>
             ))}
           </div>
-        ) : (
-          <EmptyState
-            title={search || statusFilter ? 'No matching records' : isComplaint ? 'No complaints logged' : 'No daily reports logged'}
-            copy={search || statusFilter ? 'Adjust the search or status filter to see more records.' : isComplaint ? 'The Exhibit 7 complaint register will appear here.' : 'Blocked pickups and street blocks will appear here with their reasons and photos.'}
-            actionLabel={search || statusFilter ? undefined : isComplaint ? 'Log complaint' : 'Report blocked call'}
-            onAction={search || statusFilter ? undefined : onCreate}
-          />
-        )}
+        ) : page.loading ? (
+          <div className="record-skeleton" aria-hidden="true">
+            {Array.from({ length: 6 }, (_, index) => <div key={index}><i /><i /><i /><i /></div>)}
+          </div>
+        ) : !page.error ? (
+          <EmptyState title={dateError ? 'Select a date or a valid range' : hasFilters ? 'No matching records' : isComplaint ? 'No complaints logged' : 'No daily reports logged'}
+            copy={dateError ? 'Dates may include today. A range must start before it ends.' : hasFilters ? 'Try another search, priority, status, or date.' : 'New reports will appear here as they are saved.'}
+            actionLabel={hasFilters ? 'Clear filters' : isComplaint ? 'Log complaint' : 'Report blocked call'}
+            onAction={hasFilters ? clearFilters : onCreate} />
+        ) : null}
+        <div className="record-pagination" ref={sentinel}>
+          {page.loading ? <div className="record-loading-indicator" role="status"><span className="loading-ring" aria-hidden="true" />{page.records.length ? 'Loading more records?' : 'Loading records?'}</div>
+            : page.error ? <div className="record-load-error" role="alert"><span>{page.error}</span><button type="button" className="text-button" onClick={page.retry}>Try again</button></div>
+            : page.nextCursor ? <button type="button" className="button button--secondary" onClick={page.loadMore}>Load 50 more</button>
+            : page.records.length ? <span>All matching records are shown.</span> : null}
+        </div>
       </section>
     </>
   );
 }
 
-function ExportsView({ records, notificationsEnabled }: { records: ReportRecord[]; notificationsEnabled: boolean }) {
+function ExportCard({ type, title, description }: { type: 'daily' | 'complaints'; title: string; description: string }) {
   const today = edmontonDateKey();
-  const [dailyFrom, setDailyFrom] = useState(today);
-  const [dailyTo, setDailyTo] = useState(today);
-  const [complaintFrom, setComplaintFrom] = useState(monthStartDateKey());
-  const [complaintTo, setComplaintTo] = useState(today);
-  const dailyError = exportDateRangeError(dailyFrom, dailyTo, true);
-  const complaintError = exportDateRangeError(complaintFrom, complaintTo, true);
+  const first = type === 'complaints' ? monthStartDateKey() : today;
+  const [dates, setDates] = useState<DateFilterValue>({ mode: first === today ? 'day' : 'range', from: first, to: today });
+  const error = dateFilterError(dates);
+  const params = dateFilterParams(dates);
+  params.set('type', type);
+  const exportUrl = (format: 'xlsx' | 'csv') => appPath(`/api/export?${params}&format=${format}`);
+  return (
+    <article className={`panel export-card${type === 'complaints' ? ' export-card--orange' : ''}`}>
+      <div className="export-card__mark">{type === 'complaints' ? '7' : 'D'}</div>
+      <div>
+        <p className="eyebrow">{type === 'complaints' ? 'Exhibit 7' : 'Daily summary'}</p>
+        <h2>{title}</h2>
+        <p>{description}</p>
+      </div>
+      <DateFilter value={dates} onChange={setDates} />
+      <div className="export-card__footer">
+        <span>{error ? 'Choose valid dates' : 'All matching records included'}</span>
+        {error ? <button className="button button--primary" type="button" disabled>Download CSV</button>
+          : <a className="button button--primary" href={exportUrl('csv')}>Download CSV</a>}
+      </div>
+    </article>
+  );
+}
 
-  const dailyCount = records.filter((record) => {
-    const date = record.occurredAt.slice(0, 10);
-    return date >= dailyFrom && date <= dailyTo;
-  }).length;
-  const complaintCount = records.filter((record) => {
-    const date = record.occurredAt.slice(0, 10);
-    return record.recordType === 'complaint' && date >= complaintFrom && date <= complaintTo;
-  }).length;
-
-  const dailyUrl = appPath(`/api/export?type=daily&from=${encodeURIComponent(dailyFrom)}&to=${encodeURIComponent(dailyTo)}`);
-  const complaintUrl = appPath(`/api/export?type=complaints&from=${encodeURIComponent(complaintFrom)}&to=${encodeURIComponent(complaintTo)}`);
-
+function ExportsView({ notificationsEnabled }: { notificationsEnabled: boolean }) {
   return (
     <>
       <div className="page-heading page-heading--register">
         <div>
           <p className="eyebrow">CM deliverables</p>
           <h1>Reports and exports</h1>
-          <p className="page-intro">
-            Prepare the daily operational summary and the Exhibit 7 complaint record
-            for scheduled delivery or an on-request review.
-          </p>
+          <p className="page-intro">Download reports for a selected date or date range.</p>
         </div>
       </div>
-
       <section className="export-grid">
-        <article className="panel export-card">
-          <div className="export-card__mark">D</div>
-          <div>
-            <p className="eyebrow">Daily summary</p>
-            <h2>Operational activity export</h2>
-            <p>Includes blocked pickups, street blocks, reasons, photo references, complaints, corrective actions, and current status.</p>
-          </div>
-          <div className="date-range">
-            <label>
-              <span>From</span>
-              <input type="date" value={dailyFrom} max={dailyTo || undefined} required aria-invalid={Boolean(dailyError)} aria-describedby={dailyError ? 'daily-date-error' : undefined} onChange={(event) => setDailyFrom(event.target.value)} />
-            </label>
-            <label>
-              <span>To</span>
-              <input type="date" value={dailyTo} min={dailyFrom || undefined} required aria-invalid={Boolean(dailyError)} aria-describedby={dailyError ? 'daily-date-error' : undefined} onChange={(event) => setDailyTo(event.target.value)} />
-            </label>
-          </div>
-          {dailyError ? <p id="daily-date-error" className="date-range-error" role="alert">{dailyError}</p> : null}
-          <div className="export-card__footer">
-            <span>{dailyError ? 'Choose a valid date range' : <><strong>{dailyCount}</strong> records selected</>}</span>
-            {dailyError ? <button className="button button--primary" type="button" disabled>Download CSV</button> : <a className="button button--primary" href={dailyUrl}>Download CSV</a>}
-          </div>
-        </article>
-
-        <article className="panel export-card export-card--orange">
-          <div className="export-card__mark">7</div>
-          <div>
-            <p className="eyebrow">Exhibit 7</p>
-            <h2>Complaint record export</h2>
-            <p>Uses the prescribed inquiry, complaint, employee, customer, resolution, and timing columns.</p>
-          </div>
-          <div className="date-range">
-            <label>
-              <span>From</span>
-              <input type="date" value={complaintFrom} max={complaintTo || undefined} required aria-invalid={Boolean(complaintError)} aria-describedby={complaintError ? 'complaint-date-error' : undefined} onChange={(event) => setComplaintFrom(event.target.value)} />
-            </label>
-            <label>
-              <span>To</span>
-              <input type="date" value={complaintTo} min={complaintFrom || undefined} required aria-invalid={Boolean(complaintError)} aria-describedby={complaintError ? 'complaint-date-error' : undefined} onChange={(event) => setComplaintTo(event.target.value)} />
-            </label>
-          </div>
-          {complaintError ? <p id="complaint-date-error" className="date-range-error" role="alert">{complaintError}</p> : null}
-          <div className="export-card__footer">
-            <span>{complaintError ? 'Choose a valid date range' : <><strong>{complaintCount}</strong> complaints selected</>}</span>
-            {complaintError ? <button className="button button--primary" type="button" disabled>Download CSV</button> : <a className="button button--primary" href={complaintUrl}>Download CSV</a>}
-          </div>
-        </article>
+        <ExportCard type="daily" title="Operational activity export"
+          description="Blocked calls, complaints, locations, photo references, corrective actions, and current status." />
+        <ExportCard type="complaints" title="Complaint record export"
+          description="The Exhibit 7 inquiry, employee, customer, and resolution fields." />
       </section>
-
       <section className="panel delivery-panel">
         <div>
           <p className="eyebrow">Report notifications</p>
           <h2>Email updates after submission</h2>
-          <p>
-            {notificationsEnabled
-              ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download CSV exports above when needed.'
-              : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and CSV exports are available above.'}
-          </p>
+          <p>{notificationsEnabled
+            ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download CSV exports above when needed.'
+            : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and CSV exports are available above.'}</p>
         </div>
         <span className="connection-badge">{notificationsEnabled ? 'Notifications enabled' : 'Notifications not enabled'}</span>
       </section>
@@ -958,21 +917,22 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
   const [view, setView] = useState<View>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [records, setRecords] = useState<ReportRecord[]>([]);
+  const [overview, setOverview] = useState<ReportingOverview>(EMPTY_OVERVIEW);
+  const [revision, setRevision] = useState(0);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [formMode, setFormMode] = useState<FormMode>(null);
-  const [selectedRecordId, setSelectedRecordId] = useState('');
-  const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [selectedRecord, setSelectedRecord] = useState<ReportRecord | null>(null);
   const [toast, setToast] = useState('');
 
   const loadRecords = useCallback(async () => {
     setLoading(true);
     setLoadError('');
     try {
-      const response = await reportingFetch(appPath('/api/records'), { cache: 'no-store' });
-      const result = await readApiResponse<{ records: ReportRecord[] }>(response);
+      const response = await reportingFetch(appPath('/api/records?view=overview'), { cache: 'no-store' });
+      const result = await readApiResponse<{ records: ReportRecord[]; overview: ReportingOverview }>(response);
       setRecords(result.records);
+      setOverview(result.overview || EMPTY_OVERVIEW);
     } catch (error) {
       setLoadError(apiErrorMessage(error));
     } finally {
@@ -994,21 +954,18 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
     return () => window.clearTimeout(timeout);
   }, [toast]);
 
-  const selectedRecord = useMemo(
-    () => records.find((record) => record.id === selectedRecordId) ?? null,
-    [records, selectedRecordId],
-  );
-
   function handleCreated(record: ReportRecord) {
-    setRecords((current) => [record, ...current.filter((item) => item.id !== record.id)]);
+    setRevision((current) => current + 1);
+    void loadRecords();
     if (record.recordType === 'complaint') setFormMode(null);
     setView(record.recordType === 'complaint' ? 'complaints' : 'daily');
     if (record.recordType === 'complaint') setToast(`${record.referenceNumber} saved successfully.`);
   }
 
   function handleUpdated(record: ReportRecord) {
-    setRecords((current) => current.map((item) => item.id === record.id ? record : item));
-    setSelectedRecordId(record.id);
+    setSelectedRecord(record);
+    setRevision((current) => current + 1);
+    void loadRecords();
     setToast(`${record.referenceNumber} updated.`);
   }
 
@@ -1090,42 +1047,37 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
           {view === 'dashboard' ? (
             <DashboardView
               records={records}
+              overview={overview}
               loading={loading}
               onCreate={setFormMode}
-              onOpenRecord={(record) => setSelectedRecordId(record.id)}
+              onOpenRecord={setSelectedRecord}
               onChangeView={setView}
             />
           ) : null}
           {view === 'daily' ? (
             <RegisterView
               mode="daily"
-              records={records}
-              search={search}
-              statusFilter={statusFilter}
-              onSearchChange={setSearch}
-              onStatusChange={setStatusFilter}
+              key={view}
+              revision={revision}
               onCreate={() => setFormMode('daily')}
-              onOpenRecord={(record) => setSelectedRecordId(record.id)}
+              onOpenRecord={setSelectedRecord}
             />
           ) : null}
           {view === 'complaints' ? (
             <RegisterView
               mode="complaint"
-              records={records}
-              search={search}
-              statusFilter={statusFilter}
-              onSearchChange={setSearch}
-              onStatusChange={setStatusFilter}
+              key={view}
+              revision={revision}
               onCreate={() => setFormMode('complaint')}
-              onOpenRecord={(record) => setSelectedRecordId(record.id)}
+              onOpenRecord={setSelectedRecord}
             />
           ) : null}
-          {view === 'exports' ? <ExportsView records={records} notificationsEnabled={notificationsEnabled} /> : null}
+          {view === 'exports' ? <ExportsView notificationsEnabled={notificationsEnabled} /> : null}
         </div>
       </section>
 
       {formMode === 'complaint' ? <ComplaintFormModal reporterName={reporterName} onClose={() => setFormMode(null)} onSaved={handleCreated} /> : null}
-      {selectedRecord ? <RecordDetails record={selectedRecord} onClose={() => setSelectedRecordId('')} onUpdated={handleUpdated} /> : null}
+      {selectedRecord ? <RecordDetails record={selectedRecord} onClose={() => setSelectedRecord(null)} onUpdated={handleUpdated} /> : null}
       {toast ? <div className="toast" role="status">{toast}</div> : null}
     </main>
   );

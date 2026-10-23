@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 
-export type AppIconName = 'camera' | 'dashboard' | 'daily' | 'complaints' | 'exports' | 'clock' | 'check';
+export type AppIconName = 'camera' | 'dashboard' | 'daily' | 'complaints' | 'exports' | 'clock' | 'check' | 'search';
 
 const icons: Record<AppIconName, ReactNode> = {
+  search: <><circle cx="10.5" cy="10.5" r="6.5" /><path d="m16 16 5 5" /></>,
   camera: <><path d="M8 5h8l2 3h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-9a2 2 0 0 1 2-2h2l2-3Z" /><circle cx="12" cy="14" r="4" /><path d="M18.5 11h.01" /></>,
   dashboard: <><rect x="3" y="3" width="7" height="7" rx="1.5" /><rect x="14" y="3" width="7" height="7" rx="1.5" /><rect x="3" y="14" width="7" height="7" rx="1.5" /><rect x="14" y="14" width="7" height="7" rx="1.5" /></>,
   daily: <><path d="M9 5H6a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-3" /><rect x="9" y="2" width="6" height="5" rx="1.5" /><path d="m8 14 2.5 2.5L16 11" /></>,

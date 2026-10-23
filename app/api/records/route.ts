@@ -5,9 +5,11 @@ import { validatePhotos } from '../../../lib/photo-validation';
 import { readReportBody } from '../../../lib/request-body';
 import { getLocationCatalogue } from '../../../lib/location-catalogue-store';
 import { complaintCategoryError } from '../../../lib/complaint-options';
+import { parseReportFilters } from '../../../lib/report-filters';
 import {
   createReportRecord,
-  listReportRecords,
+  queryReportRecords,
+  reportingOverview,
   updateReportRecord,
 } from '../../../lib/reporting-store';
 import type {
@@ -149,9 +151,16 @@ export async function GET(request: Request) {
   const denied = accessResponse(request);
   if (denied) return denied;
   try {
-    const records = await listReportRecords();
-    return NextResponse.json({ records });
+    const params = new URL(request.url).searchParams;
+    if (params.get('view') === 'overview') {
+      return NextResponse.json(await reportingOverview(), { headers: { 'Cache-Control': 'private, no-store' } });
+    }
+    let filters;
+    try { filters = parseReportFilters(params); }
+    catch (error) { throw new InputError(error instanceof Error ? error.message : 'Check the filters.'); }
+    return NextResponse.json(await queryReportRecords(filters, params.get('cursor') || ''), { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
+    if (error instanceof InputError) return errorResponse(error, error.status);
     return errorResponse(error);
   }
 }

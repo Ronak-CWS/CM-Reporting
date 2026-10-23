@@ -1,25 +1,22 @@
 import { listReportRecords } from '../../../lib/reporting-store';
 import { accessResponse } from '../../../lib/request-access';
 import type { ReportRecord } from '../../../lib/report-types';
-import { exportDateRangeError } from '../../../lib/export-date-range';
+import { parseReportFilters } from '../../../lib/report-filters';
 import { reportDescription } from '../../../lib/report-description';
 
 export const dynamic = 'force-dynamic';
+export const runtime = 'nodejs';
 
 function csvCell(value: unknown) {
   const normalized = String(value ?? '').replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-  return `"${normalized.replaceAll('"', '""')}"`;
+  const safe = /^[\s\u0000-\u001f]*[=+@-]/.test(normalized) ? `'${normalized}` : normalized;
+  return `"${safe.replaceAll('"', '""')}"`;
 }
 
 function buildCsv(headers: string[], rows: unknown[][]) {
   const lines = [headers.map(csvCell).join(',')];
   rows.forEach((row) => lines.push(row.map(csvCell).join(',')));
   return `\uFEFF${lines.join('\r\n')}`;
-}
-
-function withinRange(record: ReportRecord, from: string, to: string) {
-  const recordDate = record.occurredAt.slice(0, 10);
-  return (!from || recordDate >= from) && (!to || recordDate <= to);
 }
 
 function exhibitSevenCsv(records: ReportRecord[]) {
@@ -92,7 +89,7 @@ function dailySummaryCsv(records: ReportRecord[]) {
     record.category,
     record.priority,
     record.status,
-    record.siteAddress,
+    record.recordType === 'complaint' ? record.customerAddress : record.siteAddress,
     record.routeNumber,
     record.serviceType,
     reportDescription(record),
@@ -121,23 +118,26 @@ export async function GET(request: Request) {
   if (denied) return denied;
   const url = new URL(request.url);
   const exportType = url.searchParams.get('type') === 'complaints' ? 'complaints' : 'daily';
-  const from = url.searchParams.get('from') ?? '';
-  const to = url.searchParams.get('to') ?? '';
-  const rangeError = exportDateRangeError(from, to);
-  if (rangeError) return Response.json({ error: rangeError }, { status: 400, headers: { 'Cache-Control': 'private, no-store' } });
-  const records = (await listReportRecords()).filter((record) => withinRange(record, from, to));
-  const filteredRecords = exportType === 'complaints'
-    ? records.filter((record) => record.recordType === 'complaint')
-    : records;
-  const csv = exportType === 'complaints'
-    ? exhibitSevenCsv(filteredRecords)
-    : dailySummaryCsv(filteredRecords);
+  const format = url.searchParams.get('format') || 'csv';
+  if (format !== 'csv') return Response.json({ error: 'Choose CSV format.' }, { status: 400 });
+  const params = new URLSearchParams(url.searchParams);
+  // The daily deliverable intentionally contains all operational activity.
+  if (exportType === 'complaints') params.set('type', 'complaint');
+  else params.delete('type');
+  let filters;
+  try { filters = parseReportFilters(params); }
+  catch (error) {
+    return Response.json({ error: error instanceof Error ? error.message : 'Check the export filters.' }, { status: 400, headers: { 'Cache-Control': 'private, no-store' } });
+  }
+  const { from = '', to = '' } = filters;
+  const records = await listReportRecords(filters);
+  const body = exportType === 'complaints' ? exhibitSevenCsv(records) : dailySummaryCsv(records);
   const rangeLabel = [from, to].filter(Boolean).join('_to_') || new Date().toISOString().slice(0, 10);
   const filename = exportType === 'complaints'
-    ? `CM_Exhibit_7_Complaints_${rangeLabel}.csv`
-    : `CM_Daily_Summary_${rangeLabel}.csv`;
+    ? `CM_Exhibit_7_Complaints_${rangeLabel}.${format}`
+    : `CM_Daily_Summary_${rangeLabel}.${format}`;
 
-  return new Response(csv, {
+  return new Response(body, {
     headers: {
       'Content-Disposition': `attachment; filename="${filename}"`,
       'Content-Type': 'text/csv; charset=utf-8',

@@ -4,8 +4,11 @@ import { InputError } from './input-error';
 import { EVIDENCE_SCHEMA_SQL } from './evidence-schema';
 import { EMAIL_OUTBOX_SQL } from './email-outbox.js';
 import { reportEmailStatements } from './report-email';
+import { createHash } from 'node:crypto';
+import { RECORD_PAGE_SIZE, type ReportFilters, type ReportPage, type ReportingOverview } from './report-filters';
+import type { SQLInputValue } from 'node:sqlite';
 import type { ValidatedPhoto } from './photo-validation';
-import { edmontonTimestamp } from './report-time';
+import { edmontonDateKey, edmontonTimestamp } from './report-time';
 import type {
   CreateReportRecordInput,
   ReportRecord,
@@ -62,6 +65,8 @@ async function initializeSchema(database: StorageDatabase) {
     database.prepare(
       'CREATE INDEX IF NOT EXISTS idx_report_records_community ON report_records(registered_community)',
     ),
+    database.prepare('CREATE INDEX IF NOT EXISTS idx_report_records_page ON report_records(occurred_at DESC, created_at DESC, id DESC)'),
+    database.prepare('CREATE INDEX IF NOT EXISTS idx_report_records_type_page ON report_records(record_type, occurred_at DESC, created_at DESC, id DESC)'),
     ...EVIDENCE_SCHEMA_SQL.map((sql) => database.prepare(sql)),
     database.prepare(`CREATE TABLE IF NOT EXISTS report_complaint_details (
       record_id TEXT PRIMARY KEY NOT NULL REFERENCES report_records(id),
@@ -210,13 +215,92 @@ function buildReferenceNumber(recordType: ReportRecord['recordType'], occurredAt
   return `CM-${typePart}-${datePart}-${token}`;
 }
 
-export async function listReportRecords() {
+function recordWhere(filters: ReportFilters) {
+  const conditions = ['1 = 1'];
+  const values: SQLInputValue[] = [];
+  for (const [column, value] of [
+    ['record_type', filters.type], ['status', filters.status], ['priority', filters.priority],
+  ]) {
+    if (value) { conditions.push(`r.${column} = ?`); values.push(value); }
+  }
+  // Stored report dates are Mountain local dates, with or without an explicit offset.
+  if (filters.from) { conditions.push('r.occurred_at >= ?'); values.push(filters.from); }
+  if (filters.to) { conditions.push("r.occurred_at < date(?, '+1 day')"); values.push(filters.to); }
+  if (filters.search) {
+    const columns = ['reference_number', 'registered_community', 'site_address', 'customer_address',
+      'route_number', 'category', 'issue_description', 'customer_name', 'customer_contact_information',
+      'employee_name', 'assigned_to', 'status', 'resolution_description'];
+    const matches = columns.map((column) => `instr(lower(r.${column}), lower(?)) > 0`);
+    values.push(...columns.map(() => filters.search!));
+    matches.push(`EXISTS (SELECT 1 FROM report_blockages b WHERE b.record_id = r.id AND
+      instr(lower(b.reason_label || ' ' || b.street_from || ' ' || b.street_to || ' ' || b.vehicle_plates), lower(?)) > 0)`);
+    matches.push(`EXISTS (SELECT 1 FROM report_complaint_details c WHERE c.record_id = r.id AND instr(lower(c.category_other_reason), lower(?)) > 0)`);
+    values.push(filters.search, filters.search);
+    conditions.push(`(${matches.join(' OR ')})`);
+  }
+  return { sql: conditions.join(' AND '), values };
+}
+
+const recordOrder = 'r.occurred_at DESC, r.created_at DESC, r.id DESC';
+const filterKey = (filters: ReportFilters) => createHash('sha256').update(JSON.stringify(filters)).digest('hex');
+
+function readCursor(cursor: string, filters: ReportFilters): string[] {
+  try {
+    if (cursor.length > 1500 || !/^[a-zA-Z0-9_-]+$/.test(cursor)) throw new Error();
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (value.v !== 1 || value.filter !== filterKey(filters) || !Array.isArray(value.after) || value.after.length !== 3 ||
+        !value.after.every((part: unknown) => typeof part === 'string' && part.length > 0 && part.length <= 100)) throw new Error();
+    return value.after;
+  } catch { throw new InputError('The record list has changed. Refresh the list and try again.'); }
+}
+
+export async function queryReportRecords(filters: ReportFilters, cursor = ''): Promise<ReportPage> {
+  const after = cursor ? readCursor(cursor, filters) : null;
   await ensureSchema();
+  const database = getDatabase();
+  const where = recordWhere(filters);
+  const pageValues = [...where.values, ...(after || []), RECORD_PAGE_SIZE + 1];
+  const [count, page] = await database.batch<DatabaseRow>([
+    database.prepare(`SELECT count(*) AS total FROM report_records r WHERE ${where.sql}`).bind(...where.values),
+    database.prepare(`SELECT r.* FROM report_records r WHERE ${where.sql}
+      ${after ? 'AND (r.occurred_at, r.created_at, r.id) < (?, ?, ?)' : ''}
+      ORDER BY ${recordOrder} LIMIT ?`).bind(...pageValues),
+  ]);
+  const records = await attachEvidence(page.results.slice(0, RECORD_PAGE_SIZE).map(mapRow));
+  const last = records.at(-1);
+  const nextCursor = page.results.length > RECORD_PAGE_SIZE && last ? Buffer.from(JSON.stringify({
+    v: 1, filter: filterKey(filters), after: [last.occurredAt, last.createdAt, last.id],
+  })).toString('base64url') : null;
+  return { records, total: Number(count.results[0].total), nextCursor };
+}
+
+// Downloads include every matching record, independently of the register's page size.
+export async function listReportRecords(filters: ReportFilters = {}) {
+  await ensureSchema();
+  const where = recordWhere(filters);
   const result = await getDatabase()
-    .prepare('SELECT * FROM report_records ORDER BY occurred_at DESC, created_at DESC LIMIT 1000')
+    .prepare(`SELECT r.* FROM report_records r WHERE ${where.sql} ORDER BY ${recordOrder}`).bind(...where.values)
     .all<DatabaseRow>();
 
   return attachEvidence(result.results.map(mapRow));
+}
+
+export async function reportingOverview() {
+  await ensureSchema();
+  const today = edmontonDateKey();
+  const [counts, recent] = await getDatabase().batch<DatabaseRow>([
+    getDatabase().prepare(`SELECT
+      count(CASE WHEN substr(occurred_at, 1, 10) = ?1 THEN 1 END) AS todayRecords,
+      count(DISTINCT CASE WHEN substr(occurred_at, 1, 10) = ?1 THEN registered_community END) AS todayCommunities,
+      count(CASE WHEN status != 'Resolved' THEN 1 END) AS openActions,
+      count(CASE WHEN status != 'Resolved' AND priority IN ('High', 'Urgent') THEN 1 END) AS flaggedActions,
+      count(CASE WHEN record_type = 'complaint' AND substr(occurred_at, 1, 10) = ?1 THEN 1 END) AS todayComplaints,
+      count(CASE WHEN record_type = 'complaint' AND substr(occurred_at, 1, 10) = ?1 AND status != 'Open' THEN 1 END) AS acknowledgedComplaints,
+      count(CASE WHEN substr(resolved_at, 1, 10) = ?1 THEN 1 END) AS resolvedToday
+      FROM report_records`).bind(today),
+    getDatabase().prepare(`SELECT r.* FROM report_records r ORDER BY ${recordOrder} LIMIT 5`),
+  ]);
+  return { overview: counts.results[0] as unknown as ReportingOverview, records: await attachEvidence(recent.results.map(mapRow)) };
 }
 
 export async function createReportRecord(input: CreateReportRecordInput, photos: ValidatedPhoto[] = [], submissionId?: string) {

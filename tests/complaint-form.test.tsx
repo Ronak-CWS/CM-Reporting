@@ -22,7 +22,7 @@ beforeEach(() => {
       submitted.push(payload);
       return Response.json({ record: { ...payload, id: 'test-complaint', referenceNumber: 'CM-CMP-TEST', reportedAt: '2026-10-04T20:00:00Z', photos: [] } }, { status: 201 });
     }
-    return Response.json({ records: [] });
+    return Response.json({ records: submitted.map((payload) => ({ ...payload, id: 'test-complaint', referenceNumber: 'CM-CMP-TEST', photos: [] })), total: submitted.length, nextCursor: null });
   }));
 });
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -99,7 +99,7 @@ describe('complaint Other explanation', () => {
     await user.click(screen.getByRole('button', { name: 'Save complaint' }));
     await waitFor(() => expect(submitted).toHaveLength(1));
     expect(submitted[0]).toMatchObject({ category: 'Other', categoryOtherReason: 'Community information request' });
-    await user.click(screen.getByRole('button', { name: /^CM-CMP-TEST/ }));
+    await user.click(await screen.findByRole('button', { name: /^CM-CMP-TEST/ }));
     expect(screen.getByText('Other category reason')).toBeDefined();
     expect(screen.getByText('Community information request')).toBeDefined();
   });

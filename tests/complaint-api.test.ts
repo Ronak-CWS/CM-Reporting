@@ -105,6 +105,16 @@ describe('complaint Other explanations', () => {
 });
 
 describe('complaint communities', () => {
+  it.each([undefined, '', '   '])('accepts an unnamed customer (%s) but still requires an address', async (customerName) => {
+    const response = await submit({ customerName, customerContactInformation: '' });
+    expect(response.status).toBe(201);
+    const { record } = await response.json() as { record: ReportRecord };
+    expect(record.customerName).toBe('');
+    expect(record.customerAddress).toBe('456 Example Avenue');
+    const missingAddress = await submit({ customerName, customerAddress: '   ' });
+    expect(missingAddress.status).toBe(400);
+    expect(await missingAddress.json()).toEqual({ error: 'Customer address is required.' });
+  });
   it.each(['Tes', 'Made-up community'])('rejects unlisted community %s on direct API submission', async (registeredCommunity) => {
     const response = await submit({ registeredCommunity });
     expect(response.status).toBe(400);

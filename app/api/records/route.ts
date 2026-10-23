@@ -83,7 +83,6 @@ function parseCreateInput(payload: unknown): CreateReportRecordInput {
   const complaintRequired = [
     ['Contact medium', input.contactMedium],
     ['Employee title', input.employeeTitle],
-    ['Customer name', input.customerName],
     ['Customer address', input.customerAddress],
   ];
   const missingField = [

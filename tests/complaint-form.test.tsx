@@ -35,7 +35,7 @@ async function openForm() {
 }
 function fillRequiredDetails() {
   for (const [label, value] of [
-    ['Employee title', 'Dispatcher'], ['Customer name', 'Test Customer'],
+    ['Employee title', 'Dispatcher'],
     ['Address', '456 Example Avenue'],
     ['Description of inquiry or complaint', 'Details of the complaint.'],
   ]) fireEvent.change(screen.getByLabelText(new RegExp(`^${label}`)), { target: { value } });
@@ -69,11 +69,13 @@ describe('complaint community selection', () => {
   it('prefills the signed-in employee name and submits it with the selected community', async () => {
     const user = await openForm();
     expect(screen.getByLabelText(/^Employee name/)).toHaveProperty('value', 'Test Staff');
+    expect(screen.getByLabelText(/^Customer name/)).toHaveProperty('required', false);
+    expect(screen.getByLabelText(/^Address/)).toHaveProperty('required', true);
     fillRequiredDetails();
     await selectCommunity(user);
     await user.click(screen.getByRole('button', { name: 'Save complaint' }));
     await waitFor(() => expect(submitted).toHaveLength(1));
-    expect(submitted[0]).toMatchObject({ registeredCommunity: 'Test community', recordType: 'complaint', employeeName: 'Test Staff', customerContactInformation: '' });
+    expect(submitted[0]).toMatchObject({ registeredCommunity: 'Test community', recordType: 'complaint', employeeName: 'Test Staff', customerName: '', customerAddress: '456 Example Avenue', customerContactInformation: '' });
     expect(screen.queryByRole('dialog', { name: 'Log an inquiry or complaint' })).toBeNull();
   });
 });

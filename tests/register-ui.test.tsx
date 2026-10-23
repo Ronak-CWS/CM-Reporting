@@ -43,7 +43,8 @@ describe('lazy register', () => {
     await screen.findByText('Showing 50 of 100 records');
     expect(screen.getAllByRole('button', { name: /^CM-CMP-/ })).toHaveLength(50);
     expect(screen.getByText('1 Example Avenue')).toBeDefined();
-    expect(screen.getAllByText('Name not provided')).toHaveLength(50);
+    expect(screen.queryByText('Name not provided')).toBeNull();
+    expect(screen.getAllByText('Brooks')).toHaveLength(50);
     act(() => { nextPage(); nextPage(); });
     await screen.findByText('Connection interrupted.');
     expect(fetcher).toHaveBeenCalledTimes(2);

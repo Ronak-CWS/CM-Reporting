@@ -461,7 +461,7 @@ export function RegisterView({
       <section className={`panel register-panel${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={page.loading}>
         <div className="record-table__head" aria-hidden="true">
           <span>Reference</span>
-          <span>{isComplaint ? 'Customer and community' : 'Event and community'}</span>
+          <span>{isComplaint ? 'Community' : 'Event and community'}</span>
           {isComplaint ? <span>Address</span> : null}
           <span>{isComplaint ? 'Inquiry or complaint' : 'Operational detail'}</span>
           <span>{isComplaint ? 'Resolution' : 'Owner'}</span>
@@ -476,8 +476,8 @@ export function RegisterView({
                   <small>{formatShortDateTime(record.occurredAt)}</small>
                 </span>
                 <span className="record-cell record-cell--customer">
-                  <strong>{isComplaint ? record.customerName || 'Name not provided' : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
-                  <small>{record.registeredCommunity}</small>
+                  <strong>{isComplaint ? record.registeredCommunity : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
+                  {!isComplaint ? <small>{record.registeredCommunity}</small> : null}
                 </span>
                 {isComplaint ? <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">Address</small><strong>{record.customerAddress || 'Not recorded'}</strong></span> : null}
                 <span className="record-cell record-cell--description">

@@ -22,6 +22,7 @@ function buildCsv(headers: string[], rows: unknown[][]) {
 function exhibitSevenCsv(records: ReportRecord[]) {
   const headers = [
     'No.',
+    'Reference',
     'Registered Community',
     'Date and Time of Inquiry or Complaint',
     'Contact Medium (e.g., call, email, live-chat)',
@@ -36,6 +37,7 @@ function exhibitSevenCsv(records: ReportRecord[]) {
   ];
   const rows = records.map((record, index) => [
     index + 1,
+    record.referenceNumber,
     record.registeredCommunity,
     record.occurredAt,
     record.contactMedium,
@@ -119,7 +121,7 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const exportType = url.searchParams.get('type') === 'complaints' ? 'complaints' : 'daily';
   const format = url.searchParams.get('format') || 'csv';
-  if (format !== 'csv') return Response.json({ error: 'Choose CSV format.' }, { status: 400 });
+  if (!['csv', 'xlsx'].includes(format)) return Response.json({ error: 'Choose Excel or CSV format.' }, { status: 400 });
   const params = new URLSearchParams(url.searchParams);
   // The daily deliverable intentionally contains all operational activity.
   if (exportType === 'complaints') params.set('type', 'complaint');
@@ -131,7 +133,9 @@ export async function GET(request: Request) {
   }
   const { from = '', to = '' } = filters;
   const records = await listReportRecords(filters);
-  const body = exportType === 'complaints' ? exhibitSevenCsv(records) : dailySummaryCsv(records);
+  const body = format === 'xlsx'
+    ? await (await import('../../../lib/report-workbook')).reportWorkbook(exportType, records, from, to)
+    : exportType === 'complaints' ? exhibitSevenCsv(records) : dailySummaryCsv(records);
   const rangeLabel = [from, to].filter(Boolean).join('_to_') || new Date().toISOString().slice(0, 10);
   const filename = exportType === 'complaints'
     ? `CM_Exhibit_7_Complaints_${rangeLabel}.${format}`
@@ -140,7 +144,7 @@ export async function GET(request: Request) {
   return new Response(body, {
     headers: {
       'Content-Disposition': `attachment; filename="${filename}"`,
-      'Content-Type': 'text/csv; charset=utf-8',
+      'Content-Type': format === 'xlsx' ? 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' : 'text/csv; charset=utf-8',
       'Cache-Control': 'no-store',
     },
   });

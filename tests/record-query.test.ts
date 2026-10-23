@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createLocalStorage } from '../lib/local-storage';
 import { edmontonDateKey } from '../lib/report-time';
 import type { ReportPage, ReportingOverview } from '../lib/report-filters';
+import ExcelJS from 'exceljs';
 
 const { runtime } = vi.hoisted(() => ({ runtime: { storage: undefined as ReturnType<typeof createLocalStorage> | undefined } }));
 vi.mock('../lib/local-storage', async (original) => ({
@@ -102,8 +103,21 @@ describe('register pages', () => {
     expect(response.status).toBe(200);
     const csv = await response.text();
     expect(csv.split('\r\n')).toHaveLength(1105);
-    expect(csv).toContain('99 Old Avenue');
+    expect(csv).toContain('CM-CMP-TEST-00000');
     const filtered = await exportRecords(new Request('https://cm.test/api/export?type=complaints&q=99%20Old%20Avenue'));
     expect((await filtered.text()).split('\r\n')).toHaveLength(2);
+  });
+  it('downloads a complete Excel workbook through the authenticated export handler', async () => {
+    const response = await exportRecords(new Request('https://cm.test/api/export?type=complaints&format=xlsx'));
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toContain('spreadsheetml.sheet');
+    expect(response.headers.get('Content-Disposition')).toMatch(/CM_Exhibit_7_Complaints_.*\.xlsx/);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(await response.arrayBuffer());
+    const sheet = workbook.worksheets[0];
+    expect(sheet.rowCount).toBe(1109);
+    expect(sheet.getCell('A5').value).toBe('Reference number');
+    expect(sheet.getCell('A1109').value).toBe('CM-CMP-TEST-00000');
+    expect(sheet.getCell('H1109').value).toBe('99 Old Avenue');
   });
 });

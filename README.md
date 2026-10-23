@@ -24,7 +24,11 @@ Temporary password-based guest access has been removed. Existing guest cookies a
 - At least one photo is required: up to 6 photos, 10 MB each and 30 MB total. Original JPG, PNG, WebP, GIF and HEIC/HEIF files remain downloadable. HEIC preview depends on browser support.
 - The sidebar collapses on desktop and mobile. Desktop collapse retains accessible navigation icons. The expanded sidebar displays the Collective Waste Solutions and Circular Materials logos.
 
-Reports receive an automatic Mountain-time timestamp and open status. Office staff can review photos, record resolutions and export daily or Exhibit 7 complaint CSVs. Both export forms require valid dates with the end date on or after the start date; the API also rejects invalid or reversed dates. Complaint fields are preserved. Exports link to photos rather than embedding image bytes.
+Reports receive an automatic Mountain-time timestamp and open status. Office staff can review photos, record resolutions and export formatted daily or Exhibit 7 Excel workbooks (`.xlsx`), with CSV also available. Workbooks include reference numbers, readable date/time cells, wrapped text, alternating rows, filterable headers and a frozen reference column. Exports contain every matching record, independent of the register's loaded pages, and link to photos rather than embedding image bytes.
+
+The registers load the newest 50 records first and fetch another 50 when scrolling near the end; a Load 50 more control is also available. Search runs against all saved records, including references and addresses. Status, priority and date filters combine before pagination. Select a single date or a range: ranges must start before they end, today is allowed, future dates are rejected, and both endpoints are included using America/Edmonton report dates. Dashboard counts are calculated over the complete database.
+
+Complaint customer names and contact information are optional; customer addresses remain required and are shown in the register. The employee name still defaults to the signed-in account.
 
 ## Email notifications
 

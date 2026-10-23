@@ -97,7 +97,7 @@ describe('complaint Other explanations', () => {
     for (const type of ['complaints', 'daily']) {
       const csv = await (await exportRecords(new Request(`https://cm.test/api/export?type=${type}`))).text();
       expect(csv).toContain(`Other category reason: ${reason}\n\n${complaint.issueDescription}`);
-      if (type === 'complaints') expect(csv.split('\r\n')[0].split('\",\"')).toHaveLength(12);
+      if (type === 'complaints') expect(csv.split('\r\n')[0].split('\",\"')).toHaveLength(13);
     }
     expect(await runtime.storage.database.prepare('SELECT body FROM report_email_outbox WHERE report_id = ?').bind(record.id).first())
       .toHaveProperty('body', expect.stringContaining(`Other category reason: ${reason}`));

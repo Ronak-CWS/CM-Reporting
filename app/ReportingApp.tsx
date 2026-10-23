@@ -535,9 +535,10 @@ function ExportCard({ type, title, description }: { type: 'daily' | 'complaints'
       <DateFilter value={dates} onChange={setDates} />
       <div className="export-card__footer">
         <span>{error ? 'Choose valid dates' : 'All matching records included'}</span>
-        {error ? <button className="button button--primary" type="button" disabled>Download CSV</button>
-          : <a className="button button--primary" href={exportUrl('csv')}>Download CSV</a>}
+        {error ? <button className="button button--primary" type="button" disabled>Download Excel</button>
+          : <a className="button button--primary" href={exportUrl('xlsx')}>Download Excel</a>}
       </div>
+      {!error ? <a className="text-button export-csv-link" href={exportUrl('csv')}>Download CSV instead</a> : null}
     </article>
   );
 }
@@ -549,22 +550,22 @@ function ExportsView({ notificationsEnabled }: { notificationsEnabled: boolean }
         <div>
           <p className="eyebrow">CM deliverables</p>
           <h1>Reports and exports</h1>
-          <p className="page-intro">Download reports for a selected date or date range.</p>
+          <p className="page-intro">Download formatted Excel workbooks with reference numbers, filterable headers, and complete report details.</p>
         </div>
       </div>
       <section className="export-grid">
         <ExportCard type="daily" title="Operational activity export"
           description="Blocked calls, complaints, locations, photo references, corrective actions, and current status." />
         <ExportCard type="complaints" title="Complaint record export"
-          description="The Exhibit 7 inquiry, employee, customer, and resolution fields." />
+          description="The Exhibit 7 inquiry, employee, customer, and resolution fields, with reference numbers and priority." />
       </section>
       <section className="panel delivery-panel">
         <div>
           <p className="eyebrow">Report notifications</p>
           <h2>Email updates after submission</h2>
           <p>{notificationsEnabled
-            ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download CSV exports above when needed.'
-            : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and CSV exports are available above.'}</p>
+            ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download Excel exports above when needed.'
+            : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and Excel exports are available above.'}</p>
         </div>
         <span className="connection-badge">{notificationsEnabled ? 'Notifications enabled' : 'Notifications not enabled'}</span>
       </section>

@@ -197,7 +197,7 @@ describe('durable blocked call reports', () => {
     expect(await database.prepare('SELECT subject FROM report_email_outbox WHERE report_id = ?').bind(record.id).first())
       .toHaveProperty('subject', expect.stringContaining('New complaint'));
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=complaints'))).text();
-    expect(csv.split('\r\n')[0].split('","')).toHaveLength(12);
+    expect(csv.split('\r\n')[0].split('","')).toHaveLength(13);
     expect(csv).toContain('"Test Staff","Dispatcher","Test Customer","456 Example Avenue","customer@example.invalid","Test complaint"');
   });
 

@@ -46,7 +46,7 @@ Leave `CM_ENTRA_REQUIRED_ROLE` blank or unset to allow all company-tenant member
 CM_ENTRA_REQUIRED_ROLE=
 ```
 
-Deploy the updated code, rebuild and restart the service. Earlier versions restore the mandatory `CMReporting.Access` default when this setting is empty, so changing the environment alone is not sufficient. If NSSM or the machine environment also defines this variable, clear the old value there. Switching access policies invalidates existing Microsoft and temporary guest sessions; users must sign in again. Report data is unaffected.
+Deploy the updated code, rebuild and restart the service. Earlier versions restore the mandatory `CMReporting.Access` default when this setting is empty, so changing the environment alone is not sufficient. If NSSM or the machine environment also defines this variable, clear the old value there. Switching access policies invalidates existing Microsoft sessions; users must sign in again. Report data is unaffected.
 
 To deliberately restrict access later, set `CM_ENTRA_REQUIRED_ROLE` to the exact value of a role that IT has created and assigned. Nonempty values remain enforced along with tenant membership. `CMReporting.Access` is only an example custom role name, not a built-in Microsoft role.
 

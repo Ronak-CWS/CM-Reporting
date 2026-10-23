@@ -92,7 +92,7 @@ describe('sign-in redirects through the Next request adapter', () => {
     });
     expect(response.headers.get('x-middleware-next')).toBe('1');
     // Fetch's Origin-header algorithm turns a native POST's origin into null
-    // under no-referrer. Both guest login and dashboard sign-out are forms.
+    // under no-referrer. Dashboard sign-out uses a native form.
     expect(response.headers.get('referrer-policy')).toBe('same-origin');
   });
 });

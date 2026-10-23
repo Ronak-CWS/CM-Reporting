@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RegisterView } from '../app/ReportingApp';
 import { edmontonDateKey } from '../lib/report-time';
@@ -58,7 +58,7 @@ describe('lazy register', () => {
     expect(screen.queryByRole('button', { name: 'Load 50 more' })).toBeNull();
   });
 
-  it('starts over at the first matching page for search and filters and ignores a late response', async () => {
+  it('preserves collapsed filters, starts at the first matching page, and ignores a late response', async () => {
     let resolveOld: (response: Response) => void = () => undefined;
     let oldSignal: AbortSignal | undefined;
     const fetcher = vi.fn(async (input: string, init?: RequestInit) => {
@@ -72,6 +72,14 @@ describe('lazy register', () => {
     vi.stubGlobal('fetch', fetcher);
     render(<RegisterView mode="complaint" revision={0} onCreate={vi.fn()} onOpenRecord={vi.fn()} />);
     await screen.findByText('1 Example Avenue');
+    const toggle = screen.getByRole('button', { name: 'Filters' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByRole('group', { name: 'Filter options' })).toBeNull();
+    expect(screen.queryByRole('combobox', { name: 'Priority' })).toBeNull();
+    fireEvent.click(toggle);
+    const filterPanel = screen.getByRole('group', { name: 'Filter options' });
+    expect(toggle.getAttribute('aria-controls')).toBe(filterPanel.id);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
     const search = screen.getByRole('searchbox', { name: 'Search records' });
     fireEvent.change(search, { target: { value: 'old' } });
     expect(screen.queryByText('1 Example Avenue')).toBeNull();
@@ -88,9 +96,18 @@ describe('lazy register', () => {
     expect(params.get('priority')).toBe('High');
     expect(params.get('status')).toBe('Open');
     expect(params.has('cursor')).toBe(false);
-    fireEvent.click(screen.getByRole('button', { name: 'Clear filters' }));
+    expect(toggle.getAttribute('aria-label')).toBe('Filters, 2 active');
+    fireEvent.click(toggle);
+    expect(screen.queryByRole('group', { name: 'Filter options' })).toBeNull();
+    expect(screen.getByText('999 Example Avenue')).toBeDefined();
+    fireEvent.click(toggle);
+    expect(screen.getByLabelText('Priority')).toHaveProperty('value', 'High');
+    expect(screen.getByLabelText('Status')).toHaveProperty('value', 'Open');
+    fireEvent.click(within(filterPanel).getByRole('button', { name: 'Clear filters' }));
     await screen.findByText('1 Example Avenue');
     expect(search).toHaveProperty('value', '');
+    expect(toggle.getAttribute('aria-label')).toBe('Filters');
+    expect(within(filterPanel).getByRole('button', { name: 'Clear filters' })).toHaveProperty('disabled', true);
   });
 
   it('blocks invalid dates, allows today as a single day, and preserves filters when records refresh', async () => {
@@ -99,6 +116,7 @@ describe('lazy register', () => {
     const props = { mode: 'complaint' as const, revision: 0, onCreate: vi.fn(), onOpenRecord: vi.fn() };
     const view = render(<RegisterView {...props} />);
     await screen.findByText('No complaints logged');
+    fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
     fireEvent.change(screen.getByLabelText('Date'), { target: { value: 'range' } });
     fireEvent.change(screen.getByLabelText('From'), { target: { value: '2026-10-05' } });
     fireEvent.change(screen.getByLabelText('To'), { target: { value: '2026-10-04' } });

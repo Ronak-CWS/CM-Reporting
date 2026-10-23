@@ -17,6 +17,7 @@ import {
   type FormEvent,
   useCallback,
   useEffect,
+  useId,
   useRef,
   useState,
 } from 'react';
@@ -387,6 +388,9 @@ export function RegisterView({
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const filterPanelId = useId();
+  const activeFilterCount = Number(Boolean(statusFilter)) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
   const dateError = dateFilterError(dates);
   const params = dateFilterParams(dates);
   params.set('type', mode);
@@ -427,34 +431,48 @@ export function RegisterView({
       </div>
 
       <section className="register-filters" aria-label="Record filters">
-        <label className="search-field">
-          <span className="sr-only">Search records</span>
-          <AppIcon name="search" size={20} />
-          <input type="search" value={search} maxLength={250} onChange={(event) => setSearch(event.target.value)}
-            placeholder={isComplaint ? 'Search reference, address, customer, or complaint' : 'Search reference, location, route, or report'} />
-        </label>
-        <div className="register-filter-row">
-          <label className="compact-filter">
-            <span>Status</span>
-            <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
-              <option value="">All statuses</option>
-              {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
-            </select>
+        <div className="register-search-row">
+          <label className="search-field">
+            <span className="sr-only">Search records</span>
+            <AppIcon name="search" size={20} />
+            <input type="search" value={search} maxLength={250} onChange={(event) => setSearch(event.target.value)}
+              placeholder={isComplaint ? 'Search reference, address, customer, or complaint' : 'Search reference, location, route, or report'} />
           </label>
-          <label className="compact-filter">
-            <span>Priority</span>
-            <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
-              <option value="">All priorities</option>
-              {PRIORITIES.map((priority) => <option key={priority}>{priority}</option>)}
-            </select>
-          </label>
-          <DateFilter value={dates} onChange={setDates} />
-          {hasFilters ? <button type="button" className="text-button clear-filters" onClick={clearFilters}>Clear filters</button> : null}
+          <button type="button" className={`filter-toggle${activeFilterCount ? ' filter-toggle--active' : ''}`}
+            aria-label={activeFilterCount ? `Filters, ${activeFilterCount} active` : 'Filters'}
+            aria-expanded={filtersOpen} aria-controls={filterPanelId} onClick={() => setFiltersOpen(!filtersOpen)}>
+            <AppIcon name="filter" size={20} />
+            <span className="filter-toggle__label">Filters</span>
+            {activeFilterCount ? <span className="filter-toggle__count" aria-hidden="true">{activeFilterCount}</span> : null}
+          </button>
+        </div>
+        <div className="register-filter-panel" id={filterPanelId} hidden={!filtersOpen} role="group" aria-label="Filter options">
+          <div className="register-filter-row">
+            <label className="compact-filter">
+              <span>Status</span>
+              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+                <option value="">All statuses</option>
+                {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
+              </select>
+            </label>
+            <label className="compact-filter">
+              <span>Priority</span>
+              <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
+                <option value="">All priorities</option>
+                {PRIORITIES.map((priority) => <option key={priority}>{priority}</option>)}
+              </select>
+            </label>
+            <DateFilter value={dates} onChange={setDates} />
+          </div>
+          <div className="register-filter-actions">
+            <p>Filters update the list automatically.</p>
+            <button type="button" className="text-button clear-filters" disabled={!hasFilters} onClick={clearFilters}>Clear filters</button>
+          </div>
         </div>
         <div className="register-results" aria-live="polite" aria-atomic="true">
-          <span>{dateError ? 'Choose valid dates to view records' : page.loading && !page.records.length ? 'Finding records?'
+          <span>{dateError ? 'Choose valid dates to view records' : page.loading && !page.records.length ? 'Finding records...'
             : `Showing ${page.records.length.toLocaleString()} of ${page.total.toLocaleString()} ${page.total === 1 ? 'record' : 'records'}`}</span>
-          <span>Newest first ? 50 at a time</span>
+          <span>Newest first &middot; 50 at a time</span>
         </div>
       </section>
 

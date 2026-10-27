@@ -10,6 +10,8 @@ import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import DateFilter from './components/DateFilter';
 import { useRecordPage } from '../lib/use-record-page';
+import { useReportWeeks } from '../lib/use-report-weeks';
+import { reportingWeekLabel, reportingWeekQuery, reportingWeekStart, type ReportWeek } from '../lib/report-weeks';
 import { dateFilterError, dateFilterParams, PRIORITIES, EMPTY_OVERVIEW, type DateFilter as DateFilterValue, type ReportingOverview } from '../lib/report-filters';
 import { blockageScopeLabel } from '../lib/blocked-call-options';
 import { COMPLAINT_CATEGORIES, COMPLAINT_OTHER_REASON_LIMIT, complaintCategoryError } from '../lib/complaint-options';
@@ -375,6 +377,75 @@ function DashboardView({
   );
 }
 
+function RegisterWeek({ week, mode, query, revision, current, initiallyOpen, onOpenRecord }: {
+  week: ReportWeek; mode: RecordType; query: string; revision: number;
+  current: boolean; initiallyOpen: boolean; onOpenRecord: (record: ReportRecord) => void;
+}) {
+  const [open, setOpen] = useState(initiallyOpen);
+  const [visited, setVisited] = useState(initiallyOpen);
+  const id = useId();
+  const isComplaint = mode === 'complaint';
+  const label = reportingWeekLabel(week.start);
+  const page = useRecordPage(reportingWeekQuery(query, week.start), revision, visited);
+  const sentinel = useRef<HTMLDivElement>(null);
+  const { loadMore, nextCursor, loading, error } = page;
+  useEffect(() => {
+    if (!open || !nextCursor || loading || error || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) loadMore();
+    }, { rootMargin: '200px' });
+    observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [error, loadMore, loading, nextCursor, open]);
+  const noun = isComplaint ? (week.total === 1 ? 'complaint' : 'complaints') : (week.total === 1 ? 'blocked call' : 'blocked calls');
+  return <article className={`register-week${current ? ' register-week--current' : ''}`}>
+    <h2 className="register-week__heading">
+      <button type="button" id={`${id}-heading`} className="register-week__toggle" aria-expanded={open} aria-controls={`${id}-records`}
+        onClick={() => { setVisited(true); setOpen(!open); }}>
+        <span className="register-week__date">{current ? <span className="register-week__current">This week</span> : null}<strong>{label}</strong></span>
+        <span className="register-week__count">{week.total.toLocaleString()} {noun}</span>
+        <span className="register-week__action">{open ? 'Hide' : 'Show'}<svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" aria-hidden="true"><path d="m4 6 4 4 4-4" /></svg></span>
+      </button>
+    </h2>
+    <div className="register-week__body" id={`${id}-records`} role="region" aria-labelledby={`${id}-heading`} hidden={!open} aria-busy={page.loading}>
+      {page.records.length ? <>
+        <div className="record-table__head" aria-hidden="true">
+          <span>Reference</span><span>{isComplaint ? 'Community' : 'Event and community'}</span>
+          {isComplaint ? <span>Address</span> : null}
+          <span>{isComplaint ? 'Inquiry or complaint' : 'Operational detail'}</span>
+          <span>{isComplaint ? 'Resolution' : 'Owner'}</span><span>Status</span>
+        </div>
+        <div className="record-table">
+          {page.records.map((record) => <button className="record-row" type="button" key={record.id} onClick={() => onOpenRecord(record)}>
+            <span className="record-cell record-cell--reference"><strong>{record.referenceNumber}</strong><small>{formatShortDateTime(record.occurredAt)}</small></span>
+            <span className="record-cell record-cell--customer">
+              <strong>{isComplaint ? record.registeredCommunity : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
+              {!isComplaint ? <small>{record.registeredCommunity}</small> : null}
+            </span>
+            {isComplaint ? <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">Address</small><strong>{record.customerAddress || 'Not recorded'}</strong></span> : null}
+            <span className="record-cell record-cell--description">
+              <strong>{record.issueDescription}</strong>
+              <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} ${record.photos.length === 1 ? 'photo' : 'photos'}` : ''].filter(Boolean).join(' · ') || 'No location details'}</small>
+            </span>
+            <span className="record-cell record-cell--resolution">
+              <strong>{isComplaint ? record.resolutionDescription || 'Pending' : record.assignedTo || 'Unassigned'}</strong>
+              <small>{isComplaint ? resolutionTiming(record) : record.correctiveAction || 'No action recorded'}</small>
+            </span>
+            <span className="record-cell record-cell--status"><PriorityPill priority={record.priority} /><StatusPill status={record.status} /></span>
+          </button>)}
+        </div>
+      </> : page.loading ? <div className="record-skeleton" aria-hidden="true">{Array.from({ length: 3 }, (_, index) => <div key={index}><i /><i /><i /><i /></div>)}</div>
+        : !page.error ? <p className="register-week__empty">No matching records remain in this week.</p> : null}
+      <div className="record-pagination" ref={sentinel}>
+        {page.loading ? <div className="record-loading-indicator" role="status"><span className="loading-ring" aria-hidden="true" />{page.records.length ? 'Loading more records...' : 'Loading records...'}</div>
+          : page.error ? <div className="record-load-error" role="alert"><span>{page.error}</span><button type="button" className="text-button" onClick={page.retry}>Try again</button></div>
+          : page.nextCursor ? <><span>Showing {page.records.length.toLocaleString()} of {page.total.toLocaleString()}</span><button type="button" className="button button--secondary" onClick={page.loadMore}>Load 50 more</button></>
+          : page.records.length ? <span>All {page.total.toLocaleString()} {page.total === 1 ? 'record' : 'records'} in this week shown.</span> : null}
+      </div>
+    </div>
+  </article>;
+}
+
 export function RegisterView({
   mode, revision, onCreate, onOpenRecord,
 }: {
@@ -388,7 +459,7 @@ export function RegisterView({
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
-  const [filtersOpen, setFiltersOpen] = useState(!isComplaint);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const filterPanelId = useId();
   const activeFilterCount = Number(Boolean(statusFilter)) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
   const dateError = dateFilterError(dates);
@@ -397,17 +468,9 @@ export function RegisterView({
   if (search.trim()) params.set('q', search.trim());
   if (statusFilter) params.set('status', statusFilter);
   if (priorityFilter) params.set('priority', priorityFilter);
-  const page = useRecordPage(params.toString(), revision, !dateError);
-  const sentinel = useRef<HTMLDivElement>(null);
-  const { loadMore, nextCursor, loading, error } = page;
-  useEffect(() => {
-    if (!nextCursor || loading || error || dateError || !sentinel.current || typeof IntersectionObserver === 'undefined') return;
-    const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) loadMore();
-    }, { rootMargin: '200px' });
-    observer.observe(sentinel.current);
-    return () => observer.disconnect();
-  }, [dateError, error, loadMore, loading, nextCursor]);
+  const query = params.toString();
+  const summary = useReportWeeks(query, revision, !dateError);
+  const currentWeek = reportingWeekStart();
   const hasFilters = Boolean(search || statusFilter || priorityFilter || dates.mode !== 'all');
 
   function clearFilters() {
@@ -470,65 +533,22 @@ export function RegisterView({
           </div>
         </div>
         <div className="register-results" aria-live="polite" aria-atomic="true">
-          <span>{dateError ? 'Choose valid dates to view records' : page.loading && !page.records.length ? 'Finding records...'
-            : `Showing ${page.records.length.toLocaleString()} of ${page.total.toLocaleString()} ${page.total === 1 ? 'record' : 'records'}`}</span>
-          <span>Newest first &middot; 50 at a time</span>
+          <span>{dateError ? 'Choose valid dates to view records' : summary.loading && !summary.weeks.length ? 'Finding records...'
+            : `${summary.total.toLocaleString()} ${summary.total === 1 ? 'record' : 'records'} across ${summary.weeks.length.toLocaleString()} ${summary.weeks.length === 1 ? 'week' : 'weeks'}`}</span>
+          <span>Monday–Sunday &middot; Newest first</span>
         </div>
       </section>
 
-      <section className={`panel register-panel${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={page.loading}>
-        <div className="record-table__head" aria-hidden="true">
-          <span>Reference</span>
-          <span>{isComplaint ? 'Community' : 'Event and community'}</span>
-          {isComplaint ? <span>Address</span> : null}
-          <span>{isComplaint ? 'Inquiry or complaint' : 'Operational detail'}</span>
-          <span>{isComplaint ? 'Resolution' : 'Owner'}</span>
-          <span>Status</span>
-        </div>
-        {page.records.length ? (
-          <div className="record-table">
-            {page.records.map((record) => (
-              <button className="record-row" type="button" key={record.id} onClick={() => onOpenRecord(record)}>
-                <span className="record-cell record-cell--reference">
-                  <strong>{record.referenceNumber}</strong>
-                  <small>{formatShortDateTime(record.occurredAt)}</small>
-                </span>
-                <span className="record-cell record-cell--customer">
-                  <strong>{isComplaint ? record.registeredCommunity : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
-                  {!isComplaint ? <small>{record.registeredCommunity}</small> : null}
-                </span>
-                {isComplaint ? <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">Address</small><strong>{record.customerAddress || 'Not recorded'}</strong></span> : null}
-                <span className="record-cell record-cell--description">
-                  <strong>{record.issueDescription}</strong>
-                  <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} photos` : ''].filter(Boolean).join(' ? ') || 'No location details'}</small>
-                </span>
-                <span className="record-cell record-cell--resolution">
-                  <strong>{isComplaint ? record.resolutionDescription || 'Pending' : record.assignedTo || 'Unassigned'}</strong>
-                  <small>{isComplaint ? resolutionTiming(record) : record.correctiveAction || 'No action recorded'}</small>
-                </span>
-                <span className="record-cell record-cell--status">
-                  <PriorityPill priority={record.priority} />
-                  <StatusPill status={record.status} />
-                </span>
-              </button>
-            ))}
-          </div>
-        ) : page.loading ? (
-          <div className="record-skeleton" aria-hidden="true">
-            {Array.from({ length: 6 }, (_, index) => <div key={index}><i /><i /><i /><i /></div>)}
-          </div>
-        ) : !page.error ? (
-          <EmptyState title={dateError ? 'Select a date or a valid range' : hasFilters ? 'No matching records' : isComplaint ? 'No complaints logged' : 'No daily reports logged'}
+      <section className={`panel register-panel${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={summary.loading}>
+        {summary.weeks.length ? <div className="register-weeks">
+          {!hasFilters && !summary.weeks.some((week) => week.start === currentWeek) ? <p className="register-week__empty">No {isComplaint ? 'complaints' : 'blocked calls'} this week. Open an earlier week below to view its reports.</p> : null}
+          {summary.weeks.map((week, index) => <RegisterWeek key={`${query}:${week.start}`} week={week} mode={mode} query={query} revision={revision}
+            current={week.start === currentWeek} initiallyOpen={hasFilters ? index === 0 : week.start === currentWeek} onOpenRecord={onOpenRecord} />)}
+        </div> : summary.loading ? <div className="register-weeks register-weeks--loading" role="status"><span className="loading-ring" aria-hidden="true" />Loading report weeks...</div>
+          : !summary.error ? <EmptyState title={dateError ? 'Select a date or a valid range' : hasFilters ? 'No matching records' : isComplaint ? 'No complaints logged' : 'No daily reports logged'}
             copy={dateError ? 'Dates may include today. A range must start before it ends.' : hasFilters ? 'Try another search, priority, status, or date.' : 'New reports will appear here as they are saved.'}
-            actionLabel={hasFilters ? 'Clear filters' : isComplaint ? 'Log complaint' : 'Report blocked call'}
-            onAction={hasFilters ? clearFilters : onCreate} />
-        ) : null}
-        <div className="record-pagination" ref={sentinel}>
-          {page.loading ? <div className="record-loading-indicator" role="status"><span className="loading-ring" aria-hidden="true" />{page.records.length ? 'Loading more records?' : 'Loading records?'}</div>
-            : page.error ? <div className="record-load-error" role="alert"><span>{page.error}</span><button type="button" className="text-button" onClick={page.retry}>Try again</button></div>
-            : page.nextCursor ? <button type="button" className="button button--secondary" onClick={page.loadMore}>Load 50 more</button>
-            : page.records.length ? <span>All matching records are shown.</span> : null}
-        </div>
+            actionLabel={hasFilters ? 'Clear filters' : isComplaint ? 'Log complaint' : 'Report blocked call'} onAction={hasFilters ? clearFilters : onCreate} /> : null}
+        {summary.error ? <div className="record-pagination"><div className="record-load-error" role="alert"><span>{summary.error}</span><button type="button" className="text-button" onClick={summary.retry}>Try again</button></div></div> : null}
       </section>
     </>
   );

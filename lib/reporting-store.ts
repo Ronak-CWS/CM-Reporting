@@ -9,6 +9,7 @@ import { RECORD_PAGE_SIZE, type ReportFilters, type ReportPage, type ReportingOv
 import type { SQLInputValue } from 'node:sqlite';
 import type { ValidatedPhoto } from './photo-validation';
 import { edmontonDateKey, edmontonTimestamp } from './report-time';
+import type { ReportWeeks } from './report-weeks';
 import type {
   CreateReportRecordInput,
   ReportRecord,
@@ -242,6 +243,21 @@ function recordWhere(filters: ReportFilters) {
 }
 
 const recordOrder = 'r.occurred_at DESC, r.created_at DESC, r.id DESC';
+
+export async function queryReportWeeks(filters: ReportFilters): Promise<ReportWeeks> {
+  await ensureSchema();
+  const where = recordWhere(filters);
+  // Strip the stored offset before SQLite date arithmetic so late Sunday reports
+  // stay in their Mountain calendar week rather than moving to Monday in UTC.
+  const result = await getDatabase().prepare(`SELECT
+    date(substr(r.occurred_at, 1, 10), '-' || ((CAST(strftime('%w', substr(r.occurred_at, 1, 10)) AS INTEGER) + 6) % 7) || ' days') AS week_start,
+    count(*) AS total
+    FROM report_records r WHERE ${where.sql}
+    GROUP BY week_start ORDER BY week_start DESC`).bind(...where.values).all<DatabaseRow>();
+  const weeks = result.results.map((row) => ({ start: asText(row.week_start), total: Number(row.total) }));
+  return { weeks, total: weeks.reduce((sum, week) => sum + week.total, 0) };
+}
+
 const filterKey = (filters: ReportFilters) => createHash('sha256').update(JSON.stringify(filters)).digest('hex');
 
 function readCursor(cursor: string, filters: ReportFilters): string[] {

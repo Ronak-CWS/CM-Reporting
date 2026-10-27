@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReportingApp from '../app/ReportingApp';
+import { reportingWeekStart } from '../lib/report-weeks';
 import { createLocationCatalogue, type LocationKind } from '../lib/location-catalogue';
 import locations from './fixtures/service-locations.json';
 
@@ -21,6 +22,9 @@ beforeEach(() => {
       const payload = JSON.parse(String(init.body));
       submitted.push(payload);
       return Response.json({ record: { ...payload, id: 'test-complaint', referenceNumber: 'CM-CMP-TEST', reportedAt: '2026-10-04T20:00:00Z', photos: [] } }, { status: 201 });
+    }
+    if (url.searchParams.get('groupBy') === 'week') {
+      return Response.json({ weeks: submitted.length ? [{ start: reportingWeekStart(), total: submitted.length }] : [], total: submitted.length });
     }
     return Response.json({ records: submitted.map((payload) => ({ ...payload, id: 'test-complaint', referenceNumber: 'CM-CMP-TEST', photos: [] })), total: submitted.length, nextCursor: null });
   }));

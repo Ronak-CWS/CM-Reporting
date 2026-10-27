@@ -5,6 +5,7 @@ import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
 import { createLocalStorage } from '../lib/local-storage';
 import { edmontonDateKey } from '../lib/report-time';
 import type { ReportPage, ReportingOverview } from '../lib/report-filters';
+import { reportingWeekStart, type ReportWeeks } from '../lib/report-weeks';
 import ExcelJS from 'exceljs';
 
 const { runtime } = vi.hoisted(() => ({ runtime: { storage: undefined as ReturnType<typeof createLocalStorage> | undefined } }));
@@ -44,6 +45,27 @@ beforeAll(async () => {
 afterAll(async () => { runtime.storage?.close(); if (directory) await rm(directory, { recursive: true, force: true }); });
 
 describe('register pages', () => {
+  it('counts all matching reports by week, independently of record pagination', async () => {
+    const result = await (await get('type=complaint&groupBy=week')).json() as ReportWeeks;
+    expect(result).toEqual({ total: 1104, weeks: [{ start: reportingWeekStart(), total: 1103 }, { start: '2024-02-26', total: 1 }] });
+    const filtered = await (await get('type=complaint&groupBy=week&status=Open&priority=High&q=Old&dateMode=day&from=2024-02-29&to=2024-02-29')).json();
+    expect(filtered).toEqual({ total: 1, weeks: [{ start: '2024-02-26', total: 1 }] });
+    expect(await (await get('type=daily&groupBy=week')).json()).toEqual({ total: 1, weeks: [{ start: reportingWeekStart(), total: 1 }] });
+  });
+
+  it.each([
+    ['2024-03-03T23:55:00-07:00', '2024-02-26'],
+    ['2024-03-04T00:01:00-07:00', '2024-03-04'],
+    ['2024-03-10T23:55:00-06:00', '2024-03-04'],
+  ])('uses the Mountain calendar week for %s', async (timestamp, start) => {
+    const db = runtime.storage!.sqlite;
+    db.exec('BEGIN');
+    try {
+      db.prepare("UPDATE report_records SET occurred_at = ? WHERE id = '00000'").run(timestamp);
+      expect(await (await get('groupBy=week&q=99%20Old%20Avenue')).json()).toEqual({ total: 1, weeks: [{ start, total: 1 }] });
+    } finally { db.exec('ROLLBACK'); }
+  });
+
   it('returns 50 newest records and uses stable cursors for ties, including beyond the old 1000-row cap', async () => {
     const first = await page('type=complaint');
     expect(first.records).toHaveLength(50);
@@ -86,6 +108,7 @@ describe('register pages', () => {
     'dateMode=range&from=2024-03-01', 'dateMode=day&from=2099-01-01',
     'dateMode=day&from=2026-02-29', 'dateMode=day&from=2024-02-29&to=2024-03-01',
     'status=Unknown', 'priority=Unknown', 'type=Unknown', 'cursor=invalid', 'status=Open&status=Resolved',
+    'groupBy=day', 'groupBy=week&groupBy=week', 'groupBy=week&cursor=invalid',
   ])('rejects invalid filters or cursors: %s', async (query) => { expect((await get(query)).status).toBe(400); });
   it('rejects a cursor reused with different filters', async () => {
     const first = await page('type=complaint');

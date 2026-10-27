@@ -9,6 +9,7 @@ import { parseReportFilters } from '../../../lib/report-filters';
 import {
   createReportRecord,
   queryReportRecords,
+  queryReportWeeks,
   reportingOverview,
   updateReportRecord,
 } from '../../../lib/reporting-store';
@@ -158,6 +159,12 @@ export async function GET(request: Request) {
     let filters;
     try { filters = parseReportFilters(params); }
     catch (error) { throw new InputError(error instanceof Error ? error.message : 'Check the filters.'); }
+    if (params.has('groupBy')) {
+      if (params.getAll('groupBy').length !== 1 || params.get('groupBy') !== 'week' || params.has('cursor')) {
+        throw new InputError('Choose weekly grouping without a record cursor.');
+      }
+      return NextResponse.json(await queryReportWeeks(filters), { headers: { 'Cache-Control': 'private, no-store' } });
+    }
     return NextResponse.json(await queryReportRecords(filters, params.get('cursor') || ''), { headers: { 'Cache-Control': 'private, no-store' } });
   } catch (error) {
     if (error instanceof InputError) return errorResponse(error, error.status);

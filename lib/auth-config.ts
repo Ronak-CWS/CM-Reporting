@@ -5,6 +5,8 @@ import { appPath } from './app-path.js';
 export const SESSION_SECONDS = 7 * 24 * 60 * 60;
 export const FLOW_SECONDS = 10 * 60;
 export const GUEST_SESSION_SECONDS = 60 * 60;
+export const DRIVER_SESSION_SECONDS = 12 * 60 * 60;
+export const DRIVER_SESSION_COOKIE = 'cm_reporting_driver';
 export const SESSION_COOKIE = 'cm_reporting_session';
 export const FLOW_COOKIE = 'cm_reporting_login';
 export const GUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -74,11 +76,27 @@ export function guestLoginConfig() {
   };
 }
 
+export function driverLoginConfig() {
+  const password = process.env.CM_DRIVER_LOGIN_PASSWORD || '';
+  if (!password) return null;
+  if (password.length < 12 || password.length > 128 || password.startsWith('<')) {
+    throw new Error('Set CM_DRIVER_LOGIN_PASSWORD to a private password of 12 to 128 characters, or leave it blank to disable driver access.');
+  }
+  // Driver access is independent of the Microsoft registration and guest window.
+  return {
+    passwordDigest: createHash('sha256').update(password).digest(),
+    policy: `driver:v1:${createHash('sha256').update(JSON.stringify([
+      publicOrigin(), appPath('/'), password,
+    ])).digest('hex')}`,
+  };
+}
+
 export function validateAuthenticationConfig() {
   const mode = authenticationMode();
   publicOrigin();
   if (mode === 'microsoft') microsoftConfig();
   guestLoginConfig();
+  driverLoginConfig();
   if (mode === 'proxy' && (process.env.CM_TRUSTED_PROXY_KEY || '').length < 32) {
     throw new Error('Set CM_TRUSTED_PROXY_KEY to a random secret of at least 32 characters shared only with the authenticated reverse proxy.');
   }

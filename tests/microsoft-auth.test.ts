@@ -401,7 +401,7 @@ describe('local sessions and protected reporting routes', () => {
       expect(proxy(new NextRequest(`${base}${route}`)).headers.get('x-middleware-next')).toBe('1');
     }
     expect(proxy(new NextRequest(`${base}/`)).headers.get('location')).toBe(`${base}/login`);
-    expect(proxy(new NextRequest(`${base}/blocked-call`)).headers.get('location')).toBe(`${base}/login?returnTo=%2Fblocked-call`);
+    expect(proxy(new NextRequest(`${base}/blocked-call`)).headers.get('location')).toBe(`${base}/blocked-call/login`);
     expect(proxy(new NextRequest(`${base}/api/records`)).status).toBe(401);
   });
 

@@ -6,7 +6,7 @@ import { getLocationCatalogue } from '../../../lib/location-catalogue-store';
 export const dynamic = 'force-dynamic';
 
 export async function GET(request: Request) {
-  const denied = accessResponse(request);
+  const denied = accessResponse(request, true);
   if (denied) return denied;
   const params = new URL(request.url).searchParams;
   const kind = params.get('kind') || 'community';

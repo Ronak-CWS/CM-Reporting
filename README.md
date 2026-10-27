@@ -8,14 +8,14 @@ Login now uses company Microsoft accounts through single-tenant Entra SSO. [Micr
 
 Copy `.env.example` to a private environment file and configure the dedicated CM Reporting registration and a new client secret. The template contains the company tenant ID but leaves the client ID and secret blank. Microsoft mode is the default and unconfigured access fails closed. Local UI work without Entra requires explicit `CM_AUTH_MODE=development`, which production rejects. IIS installation and real employee sign-in remain deployment checks.
 
-Access requires the configured company tenant and tenant-member claim. A custom app role is checked only when `CM_ENTRA_REQUIRED_ROLE` is explicitly set; leave it blank for all tenant members. Every data handler protects records, photos, address searches and exports. Microsoft sessions persist across restarts and expire seven days after sign-in; activity does not extend them, and logout revokes the current session. Expired sessions offer sign-in in a separate tab to preserve the current form. Tenant members receive the existing reporting access; office/driver roles remain shared.
+Office access requires the configured company tenant and tenant-member claim. A custom app role is checked only when `CM_ENTRA_REQUIRED_ROLE` is explicitly set; leave it blank for all tenant members. Every data handler protects records, photos, address searches and exports. Microsoft sessions persist across restarts and expire seven days after sign-in; activity does not extend them, and logout revokes the current session. Expired sessions offer sign-in in a separate tab to preserve the current form. The separate driver password grants only blocked-call submission and location search.
 
 Temporary password-based guest access can be enabled while Microsoft sign-in issues are resolved. It uses the existing `CM_GUEST_LOGIN_PASSWORD`, `CM_GUEST_LOGIN_ENABLED=true`, and a future `CM_GUEST_LOGIN_EXPIRES_AT`. Guest sessions last at most one hour and users must sign in again after restoring access. See [temporary guest access](docs/guest-testing.md) for deployment instructions. Microsoft sessions and saved reports are preserved.
 
 ## Driver workflow
 
-- Drivers can open `https://automation.collectivewaste.ca/cm-reporting/blocked-call` directly. Microsoft and enabled guest sign-in return them to the form. The registered Microsoft callback URL stays unchanged.
-- The final step shows Recycling as the fixed service and the signed-in account name, both read-only. The server sets the service to Recycling and uses that account name for blocked-call submissions, regardless of values supplied by the browser. Temporary guest reports use Guest user; local development reports use Local development. Records remain shared.
+- Drivers open `https://automation.collectivewaste.ca/cm-reporting/blocked-call` and sign in with the shared `CM_DRIVER_LOGIN_PASSWORD`. No Microsoft account is needed. Driver sessions last 12 hours; the password has no scheduled expiry. See [driver access](docs/driver-access.md) for setup. Keep temporary guest login disabled for Microsoft-only office access.
+- The standalone driver form does not ask for or remember a name. The server labels submissions as Driver and sets Recycling as the fixed service. The form inside the office dashboard continues to use the signed-in account name. Driver submissions and photos enter the same reporting database and notification queue, but the driver session cannot list, edit or export reports or download stored photos. See [local driver testing](docs/driver-access.md#test-locally) for the local environment and startup commands.
 - Back, the visited step buttons and the review Edit actions let drivers revisit answers and return to review with their photos, notes and route intact. Changes to the blockage type or community clear dependent selections and must be completed before submission.
 - Community, pickup address and street fields provide searchable suggestions. Drivers must choose a listed option. Editing a selection invalidates it; changing community clears the location. The server checks the community/location pair independently.
 - One “Blocked by a vehicle” option combines car, truck, van and vehicle and requires one plate. “Blocked by multiple vehicles” requires two different plates in separate fields, with additional fields available. Street vehicle blockages also require two plates.
@@ -36,7 +36,7 @@ New blocked-call and complaint submissions can notify approved recipients throug
 
 Notifications are committed with each report in a durable SQLite outbox, so SMTP outages do not lose submissions. The managed production start script runs the delivery worker and retries failures. Status edits do not send another submission email. Daily scheduled CSV delivery remains separate and is not enabled.
 
-Failed submissions retain the draft and photos while the page stays open; this is not an offline queue. The driver name comes from the signed-in session instead of a device preference.
+Failed submissions retain the draft and photos while the page stays open; this is not an offline queue. Standalone driver submissions use the generic Driver label; submissions from the office dashboard use the signed-in account.
 
 ## Approved address catalogue
 

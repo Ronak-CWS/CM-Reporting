@@ -26,6 +26,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
   const user = userEvent.setup();
   await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /A pickup location/ : /A street \/ street block/ }));
+  await user.clear(screen.getByLabelText('Community'));
   await user.type(screen.getByLabelText('Community'), 'Test community');
   await user.click(await screen.findByRole('option', { name: 'Test community' }));
   const address = scope === 'pickup' ? '123 Test Street' : 'Test Street';
@@ -39,6 +40,58 @@ async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
 }
 
 describe('simple driver flow', () => {
+  it('allows a blank Oops! tag reason and includes optional details in review and submission', async () => {
+    const save = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ receipt: { id: 'saved', referenceNumber: 'CM-DAY-TEST', siteAddress: '123 Test Street', registeredCommunity: 'Test community', photoCount: 1 } }) });
+    vi.stubGlobal('fetch', (url: string, options: unknown) => url.startsWith('/api/locations') ? Promise.resolve(locationResponse(url)) : save(url, options));
+    render(<BlockedCallWizard reporterName="" driverMode onClose={vi.fn()} />);
+    const user = await reachPhotos();
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    await user.click(screen.getByRole('button', { name: 'Oops! tag' }));
+    expect(screen.getByLabelText('Reason for Oops! tag (optional)')).toHaveProperty('required', false);
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'Add a photo' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    await user.type(screen.getByLabelText('Reason for Oops! tag (optional)'), 'Incorrect contents');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'tag.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByText('Oops! tag: Incorrect contents')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Submit blocked call' }));
+    expect(await screen.findByRole('heading', { name: "You're all set." })).toBeTruthy();
+    const form = save.mock.calls[0][1].body as FormData;
+    expect(JSON.parse(String(form.get('report')))).toMatchObject({ reasonCode: 'oops_tag', oopsTagReason: 'Incorrect contents', vehiclePlates: [] });
+  });
+
+  it('submits without a driver name and removes a previously remembered name', async () => {
+    window.localStorage.setItem('cm-reporting-driver-name', 'Previous device user');
+    const save = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ receipt: { id: 'saved', referenceNumber: 'CM-DAY-TEST', siteAddress: 'Test Street', registeredCommunity: 'Test community', photoCount: 1 } }) });
+    vi.stubGlobal('fetch', (url: string, options: unknown) => url.startsWith('/api/locations') ? Promise.resolve(locationResponse(url)) : save(url, options));
+    render(<BlockedCallWizard reporterName="" driverMode onClose={vi.fn()} />);
+    const user = await reachPhotos('street');
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.queryByLabelText(/Your name/)).toBeNull();
+    expect(window.localStorage.getItem('cm-reporting-driver-name')).toBeNull();
+    act(() => window.dispatchEvent(new CustomEvent(SESSION_RESTORED_EVENT, { detail: 'Driver' })));
+    expect(screen.queryByLabelText(/Your name/)).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Submit blocked call' }));
+    expect(await screen.findByRole('heading', { name: "You're all set." })).toBeTruthy();
+    expect(save.mock.calls[0][0]).toBe('/api/blocked-call');
+    const form = save.mock.calls[0][1].body as FormData;
+    const payload = JSON.parse(String(form.get('report')));
+    expect(payload).not.toHaveProperty('employeeName');
+    expect(payload).toMatchObject({ serviceType: 'Recycling' });
+    expect(form.getAll('photos')).toHaveLength(1);
+    expect(window.localStorage.getItem('cm-reporting-driver-name')).toBeNull();
+    expect(screen.queryByText('Back to daily reporting')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Report another blockage' }));
+    await reachPhotos('street');
+    await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'another.jpg', { type: 'image/jpeg' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.queryByLabelText(/Your name/)).toBeNull();
+  });
+
   it('keeps notes, route and photos when editing an earlier step and uses the signed-in name and fixed Recycling service', async () => {
     window.localStorage.setItem('cm-reporting-driver-name', 'Previous device user');
     render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} />);

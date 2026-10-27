@@ -1,5 +1,7 @@
 # Temporary guest access
 
+For drivers without Microsoft accounts, use the separate [driver password](driver-access.md). This older guest login grants access to the whole reporting app; keep it disabled when office reporting should require Microsoft sign-in.
+
 Guest login is available again as a temporary fallback while Microsoft access is being resolved. It uses the same private server password as before. Microsoft sign-in remains available and `CM_AUTH_MODE` stays `microsoft`; the Entra registration settings must still be configured.
 
 The guest account can use the shared reports, photos, updates, and Excel/CSV exports. Its submissions use the normal reporting database and notification settings. The dashboard labels this as a temporary guest session, and blocked-call submissions are attributed to **Guest user**.
@@ -19,7 +21,7 @@ To obtain an expiry three days from now without displaying or changing the passw
 
 Copy that timestamp into `CM_GUEST_LOGIN_EXPIRES_AT` if the previous access window has ended. This does not change the password.
 
-After deployment, confirm the `CMReporting` service is running and the local login check returns HTTP 200. Open `https://automation.collectivewaste.ca/cm-reporting/login`, enter the original guest password, and select **Guest login**. Direct links to `/cm-reporting/blocked-call` return to that form after guest sign-in. No IIS or shared ARR changes are needed.
+After deployment, confirm the `CMReporting` service is running and the local login check returns HTTP 200. Open `https://automation.collectivewaste.ca/cm-reporting/login`, enter the original guest password, and select **Guest login**. Guests can submit blocked calls from inside the reporting dashboard. The standalone `/cm-reporting/blocked-call` flow requires its separate driver password. No IIS or shared ARR changes are needed.
 
 Previously retired guest cookies remain invalid. Users sign in again with the original password. Existing Microsoft sessions keep their normal expiry.
 

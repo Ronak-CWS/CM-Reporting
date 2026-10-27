@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { accessResponse, reportAuthorName } from '../../../lib/request-access';
-import { InputError, parseBlockedCallInput } from '../../../lib/blocked-call-input';
-import { validatePhotos } from '../../../lib/photo-validation';
+import { InputError } from '../../../lib/blocked-call-input';
+import { submitBlockedCall } from '../../../lib/blocked-call-submission';
 import { readReportBody } from '../../../lib/request-body';
 import { getLocationCatalogue } from '../../../lib/location-catalogue-store';
 import { complaintCategoryError } from '../../../lib/complaint-options';
@@ -171,12 +171,7 @@ export async function POST(request: Request) {
   try {
     const { payload, files, submissionId } = await readReportBody(request);
     if (payload?.recordType === 'daily') {
-      const input = parseBlockedCallInput({ ...payload, employeeName: reportAuthorName(request) });
-      if (!/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(submissionId)) {
-        throw new InputError('Please open a new blocked call report to submit photos.');
-      }
-      const photos = await validatePhotos(files);
-      const record = await createReportRecord(input, photos, submissionId);
+      const record = await submitBlockedCall({ ...payload, employeeName: reportAuthorName(request) }, files, submissionId);
       return NextResponse.json({ record }, { status: 201 });
     }
     if (files.length) throw new InputError('Photo uploads are currently available for blocked calls.');

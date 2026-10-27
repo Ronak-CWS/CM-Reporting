@@ -25,6 +25,7 @@ export function parseBlockedCallInput(payload: unknown, now = new Date()): Creat
   if (!reason) throw new InputError('Choose a reason for this type of blockage.');
   const otherReason = reason.code === 'other' ? text(body, 'otherReason', 500) : '';
   if (reason.code === 'other' && !otherReason) throw new InputError('Describe the other reason.');
+  const oopsTagReason = reason.code === 'oops_tag' ? text(body, 'oopsTagReason', 500) : '';
   const registeredCommunity = text(body, 'registeredCommunity');
   const siteAddress = text(body, 'siteAddress', 500);
   const employeeName = text(body, 'employeeName');
@@ -35,7 +36,7 @@ export function parseBlockedCallInput(payload: unknown, now = new Date()): Creat
   if (!locationCatalogue.available) throw new InputError('The service address list is not available. Please contact the office.', 503);
   const approvedLocation = locationCatalogue.resolve(scope, registeredCommunity, siteAddress);
   if (!approvedLocation) throw new InputError('Choose a community and location from the service address list.');
-  const reasonLabel = reason.code === 'other' ? otherReason : reason.label;
+  const reasonLabel = reason.code === 'other' ? otherReason : [reason.label, oopsTagReason].filter(Boolean).join(': ');
   const streetFrom = scope === 'street' ? text(body, 'streetFrom') : '';
   const streetTo = scope === 'street' ? text(body, 'streetTo') : '';
   const notes = text(body, 'notes', 1500);

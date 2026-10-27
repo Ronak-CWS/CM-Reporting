@@ -3,8 +3,8 @@ import { basePath } from './lib/app-path.js';
 
 const nextConfig: NextConfig = {
   basePath: basePath(),
-  // IIS owns the /cm-reporting/ application-directory redirect. Do not redirect it back to /cm-reporting.
-  skipTrailingSlashRedirect: true,
+  // IIS owns the application-directory redirect in production. Local dev uses Next's redirects.
+  skipTrailingSlashRedirect: process.env.NODE_ENV === 'production',
   poweredByHeader: false,
   devIndicators: false,
   experimental: { proxyClientMaxBodySize: '32mb' },

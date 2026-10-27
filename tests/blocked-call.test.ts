@@ -59,6 +59,22 @@ describe('blocked call options and input', () => {
   });
 
   it.each([
+    [undefined, 'Oops! tag'],
+    ['   ', 'Oops! tag'],
+    [' Incorrect contents ', 'Oops! tag: Incorrect contents'],
+  ])('accepts an optional Oops! tag reason: %s', (oopsTagReason, reasonLabel) => {
+    const report = parseBlockedCallInput({ ...input, reasonCode: 'oops_tag', oopsTagReason, vehiclePlates: [] });
+    expect(report.blockage).toMatchObject({ reasonCode: 'oops_tag', reasonLabel, vehiclePlates: '' });
+    expect(report.issueDescription).toContain(`Reason: ${reasonLabel}.`);
+    expect(report.rootCause).toBe(reasonLabel);
+  });
+
+  it('bounds Oops! tag details and ignores them for other reasons', () => {
+    expect(() => parseBlockedCallInput({ ...input, reasonCode: 'oops_tag', oopsTagReason: 'x'.repeat(501) })).toThrow('too long');
+    expect(parseBlockedCallInput({ ...input, oopsTagReason: 'Stale tag detail' }).blockage?.reasonLabel).toBe('Blocked by a vehicle');
+  });
+
+  it.each([
     [{ vehiclePlates: [] }, 'Enter the vehicle plate'],
     [{ vehiclePlates: ['ABC-123', 'XYZ-789'] }, 'Enter one plate'],
     [{ reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC-123', ' '] }, 'at least two'],

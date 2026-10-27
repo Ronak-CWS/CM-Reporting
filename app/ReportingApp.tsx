@@ -388,7 +388,7 @@ export function RegisterView({
   const [statusFilter, setStatusFilter] = useState('');
   const [priorityFilter, setPriorityFilter] = useState('');
   const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
-  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(!isComplaint);
   const filterPanelId = useId();
   const activeFilterCount = Number(Boolean(statusFilter)) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
   const dateError = dateFilterError(dates);

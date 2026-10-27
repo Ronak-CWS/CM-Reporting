@@ -1,5 +1,5 @@
 import { timingSafeEqual } from 'node:crypto';
-import { authenticationMode, guestLoginConfig, microsoftConfig, publicOrigin, SESSION_COOKIE } from './auth-config';
+import { authenticationMode, driverLoginConfig, DRIVER_SESSION_COOKIE, guestLoginConfig, microsoftConfig, publicOrigin, SESSION_COOKIE } from './auth-config';
 import { readSession } from './auth-store';
 
 export function requestCookie(request: Request, name: string) {
@@ -12,14 +12,35 @@ export function signedInUser(request: Request) {
   if (authenticationMode() !== 'microsoft') return null;
   const token = requestCookie(request, SESSION_COOKIE);
   const employee = readSession(token, microsoftConfig().policy);
-  if (employee) return employee;
+  if (employee && employee.kind !== 'driver' && employee.kind !== 'guest') return employee;
   const guest = guestLoginConfig();
   const session = guest ? readSession(token, guest.policy) : null;
   return session?.kind === 'guest' ? session : null;
 }
 
+export function signedInDriver(request: Request) {
+  const settings = driverLoginConfig();
+  const session = settings ? readSession(requestCookie(request, DRIVER_SESSION_COOKIE), settings.policy) : null;
+  return session?.kind === 'driver' ? session : null;
+}
+
+export function driverAccessFailure(request: Request): { status: number; error: string } | null {
+  try {
+    publicOrigin();
+    if (!signedInDriver(request)) return { status: 401, error: 'Your driver session has ended. Enter the driver password to continue.' };
+    return mutationFailure(request);
+  } catch {
+    return { status: 503, error: 'Driver sign-in is not available. Please contact the office.' };
+  }
+}
+
+export function driverAccessResponse(request: Request) {
+  const failure = driverAccessFailure(request);
+  return failure ? Response.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } }) : null;
+}
+
 // Use only after the request has passed accessFailure/accessResponse.
-// Blocked-call authors come from the server's identity, never form fields.
+// Office blocked-call authors come from the session; standalone submissions use Driver.
 export function reportAuthorName(request: Request) {
   const mode = authenticationMode();
   if (mode === 'development') return 'Local development';
@@ -48,8 +69,9 @@ function proxyFailure(request: Request) {
   return null;
 }
 
-export function accessFailure(request: Request): { status: number; error: string } | null {
+export function accessFailure(request: Request, allowDriver = false): { status: number; error: string } | null {
   try {
+    if (allowDriver && signedInDriver(request)) return mutationFailure(request);
     const mode = authenticationMode();
     if (mode === 'development') return null;
     publicOrigin();
@@ -66,7 +88,7 @@ export function accessFailure(request: Request): { status: number; error: string
 }
 
 // Data routes enforce access themselves as well as through the Next request proxy.
-export function accessResponse(request: Request) {
-  const failure = accessFailure(request);
+export function accessResponse(request: Request, allowDriver = false) {
+  const failure = accessFailure(request, allowDriver);
   return failure ? Response.json({ error: failure.error }, { status: failure.status, headers: { 'Cache-Control': 'private, no-store' } }) : null;
 }

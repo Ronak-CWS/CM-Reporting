@@ -1,11 +1,12 @@
 import { NextResponse, type NextRequest } from 'next/server';
-import { accessFailure } from './lib/request-access';
-import { basePath } from './lib/app-path.js';
+import { accessFailure, driverAccessFailure } from './lib/request-access';
+import { appPath, basePath } from './lib/app-path.js';
 import { publicOrigin } from './lib/auth-config';
 import { withReturnTo } from './lib/auth-navigation';
 
 const publicPaths = new Set([
   '/login', '/api/auth/microsoft/start', '/api/auth/microsoft/callback', '/api/auth/guest', '/api/auth/logout',
+  '/blocked-call/login', '/api/auth/driver', '/api/auth/driver/logout',
   '/collective-waste-solutions.png', '/collective-icon.png', '/Circular Materials Logo - Colour (1).png',
 ]);
 
@@ -15,13 +16,15 @@ export function proxy(request: NextRequest) {
   const pathname = (prefix && incoming.startsWith(`${prefix}/`) ? incoming.slice(prefix.length) : incoming).replace(/\/$/, '') || '/';
   let publicPath = pathname;
   try { publicPath = decodeURIComponent(pathname); } catch { /* Malformed escapes are not a public path. */ }
-  const failure = publicPaths.has(publicPath) ? null : accessFailure(request);
+  const driverPath = ['/blocked-call', '/api/blocked-call', '/api/auth/driver/session'].includes(publicPath);
+  const failure = publicPaths.has(publicPath) ? null : driverPath ? driverAccessFailure(request) : accessFailure(request, publicPath === '/api/locations');
   if (failure) {
     if ([401, 503].includes(failure.status) && !pathname.startsWith('/api/') && ['GET', 'HEAD'].includes(request.method)) {
       try {
         // Next's proxy adapter requires an absolute URL. Use the configured
         // public origin because IIS can forward a loopback or untrusted Host.
-        const response = NextResponse.redirect(new URL(withReturnTo('/login', pathname), publicOrigin()), 303);
+        const loginPath = publicPath === '/blocked-call' ? appPath('/blocked-call/login') : withReturnTo('/login', pathname);
+        const response = NextResponse.redirect(new URL(loginPath, publicOrigin()), 303);
         response.headers.set('Cache-Control', 'private, no-store');
         return response;
       } catch {

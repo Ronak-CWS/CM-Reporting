@@ -8,8 +8,12 @@ export default function SessionNotice() {
   const [expired, setExpired] = useState(false);
   const [checking, setChecking] = useState(false);
   const [message, setMessage] = useState('');
+  const [driverSession, setDriverSession] = useState(false);
   useEffect(() => {
-    const show = () => setExpired(true);
+    const show = () => {
+      setDriverSession(window.location.pathname.replace(/\/$/, '') === appPath('/blocked-call'));
+      setExpired(true);
+    };
     window.addEventListener(SESSION_EXPIRED_EVENT, show);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, show);
   }, []);
@@ -17,7 +21,7 @@ export default function SessionNotice() {
   async function checkSession() {
     setChecking(true);
     try {
-      const result = await fetch(appPath('/api/auth/session'), { cache: 'no-store' });
+      const result = await fetch(appPath(driverSession ? '/api/auth/driver/session' : '/api/auth/session'), { cache: 'no-store' });
       if (result.ok) {
         const session = await result.json() as { user?: { name?: unknown } };
         window.dispatchEvent(new CustomEvent(SESSION_RESTORED_EVENT, { detail: session.user?.name }));
@@ -31,7 +35,7 @@ export default function SessionNotice() {
   if (!expired) return null;
   return <aside className="session-notice" role="alert" aria-label="Sign-in required">
     <p>Your session has ended. Sign in in a new tab, then return here and retry. Your current form entries are still here.</p>
-    <div><a className="text-button" href={appPath('/login')} target="_blank" rel="noopener noreferrer">Sign in again (new tab)</a>
+    <div><a className="text-button" href={appPath(driverSession ? '/blocked-call/login' : '/login')} target="_blank" rel="noopener noreferrer">Sign in again (new tab)</a>
       <button className="text-button" type="button" disabled={checking} onClick={() => void checkSession()}>{checking ? 'Checking…' : 'Check sign-in'}</button></div>
     {message ? <p>{message}</p> : null}
   </aside>;

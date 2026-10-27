@@ -21,6 +21,14 @@ export interface GuestUser {
 
 export type SignedInUser = MicrosoftUser | GuestUser;
 
+export interface DriverUser {
+  kind: 'driver';
+  name: string;
+  username: string;
+}
+
+type SessionUser = SignedInUser | DriverUser;
+
 export interface LoginFlow {
   state: string;
   nonce: string;
@@ -86,21 +94,22 @@ export function deleteLoginFlow(token: string) {
   if (validToken(token)) database().prepare('DELETE FROM login_flows WHERE token_hash = ?').run(hash(token));
 }
 
-export function createSession(user: SignedInUser, policy: string, maxAge = SESSION_SECONDS) {
+export function createSession(user: SessionUser, policy: string, maxAge = SESSION_SECONDS) {
   removeExpired();
   const token = randomBytes(32).toString('base64url');
   database().prepare('INSERT INTO sessions VALUES (?, ?, ?, ?)').run(hash(token), policy, JSON.stringify(user), now() + Math.min(maxAge, SESSION_SECONDS));
   return token;
 }
 
-export function readSession(token: string, policy: string): SignedInUser | null {
+export function readSession(token: string, policy: string): SessionUser | null {
   if (!validToken(token)) return null;
   const row = database().prepare('SELECT user_json FROM sessions WHERE token_hash = ? AND policy = ? AND expires_at > ?')
     .get(hash(token), policy, now()) as { user_json: string } | undefined;
   if (!row) return null;
   const user = JSON.parse(row.user_json) as Record<string, unknown>;
   if (!user || typeof user !== 'object' || typeof user.name !== 'string' || typeof user.username !== 'string') return null;
-  // Guest identities belong only to the separately enabled guest session policy.
+  // Shared-password identities cannot be interpreted as Microsoft identities.
+  if (policy.startsWith('driver:')) return user.kind === 'driver' ? user as unknown as DriverUser : null;
   if (policy.startsWith('guest:')) return user.kind === 'guest' ? user as unknown as GuestUser : null;
   if (user.kind !== undefined && user.kind !== 'microsoft') return null;
   if (typeof user.tenantId !== 'string' || typeof user.objectId !== 'string' ||
@@ -112,7 +121,7 @@ export function deleteSession(token: string) {
   if (validToken(token)) database().prepare('DELETE FROM sessions WHERE token_hash = ?').run(hash(token));
 }
 
-export function takeGuestLoginAttempt(policy: string) {
+export function takePasswordLoginAttempt(policy: string) {
   const db = database();
   const current = now();
   db.prepare('DELETE FROM guest_login_attempts WHERE reset_at <= ?').run(current);
@@ -126,6 +135,10 @@ export function takeGuestLoginAttempt(policy: string) {
   if (accepted) return 0;
   const row = db.prepare('SELECT reset_at FROM guest_login_attempts WHERE policy = ?').get(policy) as { reset_at: number } | undefined;
   return Math.max(1, (row?.reset_at || current + 5 * 60) - current);
+}
+
+export function clearPasswordLoginAttempts(policy: string) {
+  database().prepare('DELETE FROM guest_login_attempts WHERE policy = ?').run(policy);
 }
 
 export function closeAuthStore() {

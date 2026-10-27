@@ -15,11 +15,12 @@ import { normalizedVehiclePlates, vehiclePlateError } from '../../lib/vehicle-pl
 import './blocked-call-wizard.css';
 
 type LocalPhoto = { id: string; file: File; url: string };
+type SubmissionReceipt = Pick<ReportRecord, 'id' | 'referenceNumber' | 'siteAddress' | 'registeredCommunity'> & { photoCount: number };
 const STEPS = ['Blockage', 'Location', 'Reason', 'Photos', 'Review'];
 const TITLES = ['What is blocked?', 'Where is the blockage?', 'What is blocking access?', 'Add a photo', 'Ready to submit?'];
 export default function BlockedCallWizard({
-  reporterName, onClose, onSaved,
-}: { reporterName: string; onClose: () => void; onSaved?: (record: ReportRecord) => void }) {
+  reporterName, onClose, onSaved, driverMode = false,
+}: { reporterName: string; onClose: () => void; onSaved?: (record: ReportRecord) => void; driverMode?: boolean }) {
   const [step, setStep] = useState(0);
   const [furthestStep, setFurthestStep] = useState(0);
   const [scope, setScope] = useState<BlockageScope | null>(null);
@@ -31,6 +32,7 @@ export default function BlockedCallWizard({
   const [streetTo, setStreetTo] = useState('');
   const [reasonCode, setReasonCode] = useState('');
   const [otherReason, setOtherReason] = useState('');
+  const [oopsTagReason, setOopsTagReason] = useState('');
   const [reasonQuery, setReasonQuery] = useState('');
   const [showAllReasons, setShowAllReasons] = useState(false);
   const [vehiclePlates, setVehiclePlates] = useState<string[]>(['']);
@@ -40,7 +42,7 @@ export default function BlockedCallWizard({
   const [routeNumber, setRouteNumber] = useState('');
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
-  const [savedRecord, setSavedRecord] = useState<ReportRecord | null>(null);
+  const [savedRecord, setSavedRecord] = useState<SubmissionReceipt | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
   const photoRef = useRef<LocalPhoto[]>([]);
   const busyRef = useRef(false);
@@ -50,7 +52,8 @@ export default function BlockedCallWizard({
   const cameraRef = useRef<PhotoCaptureHandle>(null);
   const isStreet = scope === 'street';
   const reason = scope ? findBlockedReason(scope, reasonCode) : undefined;
-  const reasonLabel = reasonCode === 'other' ? otherReason.trim() : reason?.label || '';
+  const reasonLabel = reasonCode === 'other' ? otherReason.trim()
+    : [reason?.label, reasonCode === 'oops_tag' ? oopsTagReason.trim() : ''].filter(Boolean).join(': ');
   const matches = scope ? searchBlockedReasons(scope, reasonQuery) : [];
   const shownReasons = reasonQuery || showAllReasons ? matches : matches.slice(0, 6);
   const hasDraft = Boolean(scope || location || community || photos.length);
@@ -65,13 +68,19 @@ export default function BlockedCallWizard({
   }, []);
 
   useEffect(() => {
+    if (driverMode) {
+      // Remove names remembered by the earlier driver form.
+      try { window.localStorage.removeItem('cm-reporting-driver-name'); }
+      catch { /* Browser storage is not needed for reporting. */ }
+      return;
+    }
     const refreshName = (event: Event) => {
       const name: unknown = (event as CustomEvent).detail;
       if (typeof name === 'string' && name.trim()) setEmployeeName(name.trim().slice(0, 250));
     };
     window.addEventListener(SESSION_RESTORED_EVENT, refreshName);
     return () => window.removeEventListener(SESSION_RESTORED_EVENT, refreshName);
-  }, []);
+  }, [driverMode]);
 
   useEffect(() => {
     if (!hasDraft || savedRecord) return;
@@ -103,6 +112,7 @@ export default function BlockedCallWizard({
   function chooseScope(nextScope: BlockageScope) {
     if (scope !== nextScope) {
       setReasonCode(''); setOtherReason(''); setReasonQuery(''); setShowAllReasons(false);
+      setOopsTagReason('');
       setVehiclePlates(['']); setLocation(''); setStreetFrom(''); setStreetTo('');
       setLocationSelected(false);
     }
@@ -152,12 +162,14 @@ export default function BlockedCallWizard({
     if (busyRef.current) return;
     if (!validateThrough(Math.min(step, 3))) return;
     if (step < 4) { goTo(furthestStep === 4 ? 4 : step + 1); return; }
-    if (!employeeName.trim()) { setError('Sign in again so your name can be added to this report.'); return; }
+    if (!driverMode && !employeeName.trim()) { setError('Sign in again so your name can be added to this report.'); return; }
     const payload = {
       recordType: 'daily', category: 'Blocked call', scope,
       registeredCommunity: community.trim(), siteAddress: location.trim(),
       reasonCode, otherReason: otherReason.trim(), streetFrom: streetFrom.trim(), streetTo: streetTo.trim(),
-      vehiclePlates: reason?.requiresVehiclePlate ? normalizedVehiclePlates(vehiclePlates) : [], notes: notes.trim(), employeeName: employeeName.trim(),
+      oopsTagReason: reasonCode === 'oops_tag' ? oopsTagReason.trim() : '',
+      vehiclePlates: reason?.requiresVehiclePlate ? normalizedVehiclePlates(vehiclePlates) : [], notes: notes.trim(),
+      ...(!driverMode ? { employeeName: employeeName.trim() } : {}),
       routeNumber: routeNumber.trim(), serviceType: BLOCKED_CALL_SERVICE,
     };
     const signature = JSON.stringify({ payload, photoIds: photos.map((photo) => photo.id) });
@@ -170,11 +182,12 @@ export default function BlockedCallWizard({
     setSaving(true);
     setError('');
     try {
-      const response = await reportingFetch(appPath('/api/records'), { method: 'POST', body: form });
-      const result = await response.json().catch(() => ({})) as { record?: ReportRecord; error?: string };
-      if (!response.ok || !result.record) throw new Error(result.error || 'Your report could not be saved. Please try again.');
-      setSavedRecord(result.record);
-      onSaved?.(result.record);
+      const response = await reportingFetch(appPath(driverMode ? '/api/blocked-call' : '/api/records'), { method: 'POST', body: form });
+      const result = await response.json().catch(() => ({})) as { record?: ReportRecord; receipt?: SubmissionReceipt; error?: string };
+      const receipt = driverMode ? result.receipt : result.record && { ...result.record, photoCount: result.record.photos.length };
+      if (!response.ok || !receipt) throw new Error(result.error || 'Your report could not be saved. Please try again.');
+      setSavedRecord(receipt);
+      if (result.record && !driverMode) onSaved?.(result.record);
       photoRef.current.forEach((photo) => URL.revokeObjectURL(photo.url));
       photoRef.current = [];
       setPhotos([]);
@@ -188,6 +201,7 @@ export default function BlockedCallWizard({
   function startAnother() {
     setScope(null); setLocation(''); setStreetFrom(''); setStreetTo(''); setReasonCode('');
     setOtherReason(''); setReasonQuery(''); setShowAllReasons(false); setVehiclePlates(['']);
+    setOopsTagReason('');
     setNotes(''); setPhotos([]); setError(''); setSavedRecord(null); setConfirmExit(false);
     submissionRef.current = null;
     setLocationSelected(false);
@@ -205,7 +219,7 @@ export default function BlockedCallWizard({
     <main className="driver-page">
       <header className="driver-header">
         <Image src={appPath('/collective-waste-solutions.png')} alt="Collective Waste Solutions" width={180} height={45} priority />
-        <button className="driver-exit" type="button" onClick={requestClose} disabled={saving}>Close</button>
+        <button className="driver-exit" type="button" onClick={requestClose} disabled={saving}>{driverMode ? 'Sign out' : 'Close'}</button>
       </header>
 
       <div className="driver-workspace">
@@ -213,17 +227,17 @@ export default function BlockedCallWizard({
           <section className="driver-card driver-exit-confirm" role="alert">
             <h1>Leave this report?</h1><p>Your report has not been submitted.</p>
             <button className="button button--primary" type="button" onClick={() => setConfirmExit(false)}>Keep reporting</button>
-            <button className="text-button" type="button" onClick={onClose}>Discard and close</button>
+            <button className="text-button" type="button" onClick={onClose}>{driverMode ? 'Discard and sign out' : 'Discard and close'}</button>
           </section>
         ) : savedRecord ? (
           <section className="driver-card driver-success">
             <span className="driver-success-mark" aria-hidden="true">✓</span>
             <p className="eyebrow">Blocked call submitted</p>
             <h1 tabIndex={-1} ref={headingRef}>You&apos;re all set.</h1>
-            <p>Your report and {savedRecord.photos.length} {savedRecord.photos.length === 1 ? 'photo are' : 'photos are'} saved.</p>
+            <p>Your report and {savedRecord.photoCount} {savedRecord.photoCount === 1 ? 'photo are' : 'photos are'} saved.</p>
             <div className="driver-success-summary"><strong>{savedRecord.siteAddress}</strong><span>{savedRecord.registeredCommunity}</span><small>{savedRecord.referenceNumber}</small></div>
             <button className="button button--primary button--wide" type="button" onClick={startAnother}>Report another blockage</button>
-            <button className="text-button" type="button" onClick={onClose}>Back to daily reporting</button>
+            <button className="text-button" type="button" onClick={onClose}>{driverMode ? 'Sign out' : 'Back to daily reporting'}</button>
           </section>
         ) : (
           <>
@@ -246,7 +260,7 @@ export default function BlockedCallWizard({
                   isStreet ? 'Search and select the community and street.' : 'Search and select the community and pickup address.',
                   'Tap the reason that fits best.',
                   'Show the blockage. One photo is required.',
-                  'Check the details. Your name is filled in from your account.',
+                  driverMode ? 'Check the details before submitting.' : 'Check the details. Your name is filled in from your account.',
                 ][step]}</p>
               </div>
 
@@ -291,6 +305,7 @@ export default function BlockedCallWizard({
                         <>
                           <div className="driver-selected-reason"><span aria-hidden="true">✓</span><strong>{reason.label}</strong><button className="text-button" type="button" onClick={() => setReasonCode('')}>Change</button></div>
                           {reasonCode === 'other' ? <label htmlFor="other-blocked-reason">What is blocking access? (required)<textarea id="other-blocked-reason" value={otherReason} onChange={(event) => setOtherReason(event.target.value)} rows={3} maxLength={500} required /></label> : null}
+                          {reasonCode === 'oops_tag' ? <label htmlFor="oops-tag-reason">Reason for Oops! tag (optional)<textarea id="oops-tag-reason" value={oopsTagReason} onChange={(event) => setOopsTagReason(event.target.value)} rows={3} maxLength={500} /></label> : null}
                           {reason.requiresVehiclePlate ? <div className="driver-field-stack">
                             <p className="driver-field-hint">{reason.allowsMultipleVehiclePlates ? 'Enter at least two different plates, one per vehicle.' : 'Enter the plate of the vehicle blocking access.'}</p>
                             <div className="driver-plate-grid">
@@ -346,7 +361,7 @@ export default function BlockedCallWizard({
                         <div><dt>Reason</dt><dd>{reasonLabel}{reason?.requiresVehiclePlate ? <small>Plates: {normalizedVehiclePlates(vehiclePlates).join(', ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(2)} aria-label="Edit reason">Edit</button></div>
                         <div><dt>Photos</dt><dd>{photos.length} attached</dd><button className="text-button" type="button" onClick={() => goTo(3)} aria-label="Edit photos">Edit</button></div>
                       </dl>
-                      <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} readOnly aria-describedby="driver-name-hint" /><small id="driver-name-hint">From your signed-in account.</small></label>
+                      {!driverMode ? <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} readOnly aria-describedby="driver-name-hint" /><small id="driver-name-hint">From your signed-in account.</small></label> : null}
                       <label htmlFor="driver-service">Service<input id="driver-service" value={BLOCKED_CALL_SERVICE} readOnly /></label>
                       <details className="driver-optional">
                         <summary>Add a note or route <span>(optional)</span></summary>

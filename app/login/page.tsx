@@ -29,7 +29,7 @@ export default async function Login({ searchParams }: { searchParams: Promise<Re
     authenticated = !!signedInUser(new Request(`${publicOrigin()}${appPath('/login')}`, { headers: await headers() }));
   } catch { /* Configuration and infrastructure errors are never rendered to visitors. */ }
   try { guestAvailable = !!guestLoginConfig(); } catch { /* Only show a fully configured guest option. */ }
-  if (authenticated && params.loggedOut !== '1') redirect(appPath(returnTo));
+  if (authenticated && params.loggedOut !== '1') redirect(`${publicOrigin()}${appPath(returnTo)}`);
   const error = typeof params.error === 'string' && Object.hasOwn(messages, params.error) ? messages[params.error] : '';
   return (
     <main className="login-shell">

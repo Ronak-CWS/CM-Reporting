@@ -62,7 +62,7 @@ describe('sign-in redirects through the Next request adapter', () => {
   it('preserves the driver entry point through the real Next proxy adapter', async () => {
     const response = await handle('http://127.0.0.1:3013/cm-reporting/blocked-call');
     expect(response.status).toBe(303);
-    expect(response.headers.get('location')).toBe('https://cm.test/cm-reporting/login?returnTo=%2Fblocked-call');
+    expect(response.headers.get('location')).toBe('https://cm.test/cm-reporting/blocked-call/login');
   });
 
   it.each(['', 'https://cm.test/wrong-path'])('returns a safe configuration error when the public origin is %j', async (origin) => {
@@ -83,7 +83,7 @@ describe('sign-in redirects through the Next request adapter', () => {
     expect(api.headers.get('location')).toBeNull();
   });
 
-  it.each(['/login', '/'])('preserves the origin on native forms served from %s', async (pathname) => {
+  it.each(['/login', '/blocked-call/login', '/'])('preserves the origin on native forms served from %s', async (pathname) => {
     vi.stubEnv('CM_AUTH_MODE', 'proxy');
     const key = 'test-only-proxy-key-at-least-32-characters';
     vi.stubEnv('CM_TRUSTED_PROXY_KEY', key);

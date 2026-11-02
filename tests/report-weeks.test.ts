@@ -13,8 +13,9 @@ describe('reporting weeks', () => {
   });
 
   it('intersects a week with the selected range and never requests future dates', () => {
-    const current = new URLSearchParams(reportingWeekQuery('type=complaint&dateMode=all&status=Open&q=Brooks', '2026-10-26', '2026-10-27'));
-    expect(Object.fromEntries(current)).toMatchObject({ type: 'complaint', status: 'Open', q: 'Brooks', dateMode: 'range', from: '2026-10-26', to: '2026-10-27' });
+    const current = new URLSearchParams(reportingWeekQuery('type=complaint&dateMode=all&status=Open&status=In+progress&q=Brooks', '2026-10-26', '2026-10-27'));
+    expect(Object.fromEntries(current)).toMatchObject({ type: 'complaint', q: 'Brooks', dateMode: 'range', from: '2026-10-26', to: '2026-10-27' });
+    expect(current.getAll('status')).toEqual(['Open', 'In progress']);
     const single = new URLSearchParams(reportingWeekQuery('type=daily&dateMode=range&from=2026-10-27&to=2026-10-29', '2026-10-26', '2026-10-27'));
     expect(Object.fromEntries(single)).toMatchObject({ dateMode: 'day', from: '2026-10-27', to: '2026-10-27' });
   });

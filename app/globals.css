@@ -965,6 +965,17 @@ h2 {
 .register-filter-row .compact-filter { min-width: 0; grid-column: auto; }
 .register-filter-row .compact-filter :is(select, input) { width: 100%; min-width: 0; height: 48px; box-shadow: none; }
 .register-filter-row .compact-filter :is(select, input):focus-visible { outline: 3px solid var(--teal-100); outline-offset: 2px; border-color: var(--teal-700); }
+.status-filter { position: relative; }
+.status-filter__toggle { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; min-height: 48px; padding: 10px 13px; border: 1px solid rgba(16, 40, 59, .12); border-radius: 14px; background: #fff; color: var(--navy-900); text-align: left; font-size: .82rem; cursor: pointer; }
+.status-filter__toggle:focus-visible, .status-filter__all:focus-visible { outline: 3px solid var(--teal-100); outline-offset: 2px; border-color: var(--teal-700); }
+.status-filter__chevron { flex: none; width: 7px; height: 7px; margin-right: 3px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); }
+.status-filter__toggle[aria-expanded="true"] .status-filter__chevron { transform: rotate(225deg); }
+.status-filter__options { position: absolute; z-index: 10; top: calc(100% + 6px); left: 0; width: max(100%, 210px); max-width: calc(100cqi - 40px); padding: 8px; border: 1px solid var(--slate-200); border-radius: 14px; background: #fff; box-shadow: var(--shadow-md); }
+.status-filter__options p { margin: 4px 8px 8px; color: var(--slate-500); font-size: .75rem; }
+.status-filter__option { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px; border-radius: 8px; color: var(--navy-900); font-size: .82rem; cursor: pointer; }
+.status-filter__option:hover, .status-filter__option:has(input:checked) { background: var(--teal-100); }
+.register-filter-row .status-filter__option input { flex: none; width: 18px; height: 18px; margin: 0; accent-color: var(--teal-700); }
+.status-filter__all { width: 100%; min-height: 40px; margin-top: 4px; border-top: 1px solid var(--slate-100); text-align: left; padding-inline: 8px; }
 .compact-filter input[type="date"] { min-width: 0; min-height: 48px; width: 100%; padding: 0 12px; border: 1px solid rgba(16, 40, 59, .12); border-radius: 14px; background: #fff; color: var(--navy-900); font: inherit; font-size: .82rem; box-shadow: var(--shadow-sm); }
 .compact-filter input[aria-invalid="true"] { border-color: #b8463a; }
 .date-filter__error { flex-basis: 100%; margin: 0; max-width: 520px; color: #a13930; font-size: .8rem; line-height: 1.5; }
@@ -982,6 +993,7 @@ h2 {
   .register-filter-row > .date-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .register-filter-row > .date-filter > .compact-filter:first-child { grid-column: 1 / -1; }
   .register-filter-row .compact-filter :is(select, input) { font-size: 1rem; }
+  .status-filter__toggle, .status-filter__option { font-size: 1rem; }
 }
 @container register-filters (max-width: 420px) {
   .register-search-row { gap: 8px; }

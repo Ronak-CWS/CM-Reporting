@@ -37,7 +37,7 @@ beforeAll(async () => {
       insert.run(id, `CM-CMP-TEST-${id}`, i === 1104 ? 'daily' : 'complaint', date, date,
         'Test community', 'Service quality', 'Test staff', '', i === 0 ? '99 Old Avenue' : `${i} New Street`,
         i === 0 ? 'An older report with 100% recycling' : 'Missed collection',
-        i % 2 ? 'Resolved' : 'Open', i % 3 ? 'Normal' : 'High', '2026-10-01T12:00:00Z', '2026-10-01T12:00:00Z');
+        i === 6 ? 'In progress' : i % 2 ? 'Resolved' : 'Open', i % 3 ? 'Normal' : 'High', '2026-10-01T12:00:00Z', '2026-10-01T12:00:00Z');
     }
     db.exec('COMMIT');
   } catch (error) { db.exec('ROLLBACK'); throw error; }
@@ -102,12 +102,47 @@ describe('register pages', () => {
     const today = await page(`dateMode=day&from=${edmontonDateKey()}`);
     expect(today.total).toBe(1104);
   });
+  it('matches any selected status and keeps counts, pages, and exports consistent with other filters', async () => {
+    const otherFilters = `type=complaint&priority=High&q=Missed&dateMode=day&from=${edmontonDateKey()}`;
+    const query = `${otherFilters}&status=Open&status=In+progress`;
+    const first = await page(query);
+    expect(first.total).toBe(183);
+    expect(first.records).toHaveLength(50);
+    const records = [...first.records];
+    let cursor = first.nextCursor;
+    while (cursor) {
+      // Reordering or repeating the same selections must not invalidate the cursor.
+      const next = await page(`${otherFilters}&status=In+progress&status=Open&status=Open&cursor=${cursor}`);
+      expect(next.total).toBe(first.total);
+      records.push(...next.records);
+      cursor = next.nextCursor;
+    }
+    expect(records).toHaveLength(183);
+    expect(new Set(records.map((record) => record.id)).size).toBe(183);
+    expect(new Set(records.map((record) => record.status))).toEqual(new Set(['Open', 'In progress']));
+    expect(records.every((record) => record.recordType === 'complaint' && record.priority === 'High')).toBe(true);
+    expect(await (await get(`${query}&groupBy=week`)).json()).toEqual({ total: 183, weeks: [{ start: reportingWeekStart(), total: 183 }] });
+    const exported = await exportRecords(new Request(`https://cm.test/api/export?${query.replace('type=complaint', 'type=complaints')}`));
+    expect(exported.status).toBe(200);
+    const csv = await exported.text();
+    expect(csv.split('\r\n')).toHaveLength(184);
+    expect(records.every((record) => csv.includes(record.referenceNumber))).toBe(true);
+    expect((await get(`${otherFilters}&status=Open&cursor=${first.nextCursor}`)).status).toBe(400);
+  });
+  it('supports one status, all statuses, and clearing the status filter', async () => {
+    const progress = await page('type=complaint&status=In+progress');
+    expect(progress.total).toBe(1);
+    expect(progress.records[0].id).toBe('00006');
+    expect((await page('type=complaint&status=Open&status=In+progress&status=Resolved')).total).toBe(1104);
+    expect((await page('type=complaint&status=')).total).toBe(1104);
+  });
   it.each([
     'dateMode=range&from=2024-02-29&to=2024-02-29',
     'dateMode=range&from=2024-03-01&to=2024-02-29',
     'dateMode=range&from=2024-03-01', 'dateMode=day&from=2099-01-01',
     'dateMode=day&from=2026-02-29', 'dateMode=day&from=2024-02-29&to=2024-03-01',
-    'status=Unknown', 'priority=Unknown', 'type=Unknown', 'cursor=invalid', 'status=Open&status=Resolved',
+    'status=Unknown', 'priority=Unknown', 'type=Unknown', 'cursor=invalid', 'status=Open&status=Unknown',
+    'type=complaint&type=daily', 'priority=High&priority=Low',
     'groupBy=day', 'groupBy=week&groupBy=week', 'groupBy=week&cursor=invalid',
   ])('rejects invalid filters or cursors: %s', async (query) => { expect((await get(query)).status).toBe(400); });
   it('rejects a cursor reused with different filters', async () => {

@@ -9,6 +9,7 @@ import LocationAutocomplete from './components/LocationAutocomplete';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import DateFilter from './components/DateFilter';
+import StatusFilter from './components/StatusFilter';
 import { useRecordPage } from '../lib/use-record-page';
 import { useReportWeeks } from '../lib/use-report-weeks';
 import { reportingWeekLabel, reportingWeekQuery, reportingWeekStart, type ReportWeek } from '../lib/report-weeks';
@@ -456,25 +457,25 @@ export function RegisterView({
 }) {
   const isComplaint = mode === 'complaint';
   const [search, setSearch] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilters, setStatusFilters] = useState<RecordStatus[]>([]);
   const [priorityFilter, setPriorityFilter] = useState('');
   const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterPanelId = useId();
-  const activeFilterCount = Number(Boolean(statusFilter)) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
+  const activeFilterCount = Number(statusFilters.length > 0) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
   const dateError = dateFilterError(dates);
   const params = dateFilterParams(dates);
   params.set('type', mode);
   if (search.trim()) params.set('q', search.trim());
-  if (statusFilter) params.set('status', statusFilter);
+  for (const status of statusFilters) params.append('status', status);
   if (priorityFilter) params.set('priority', priorityFilter);
   const query = params.toString();
   const summary = useReportWeeks(query, revision, !dateError);
   const currentWeek = reportingWeekStart();
-  const hasFilters = Boolean(search || statusFilter || priorityFilter || dates.mode !== 'all');
+  const hasFilters = Boolean(search || statusFilters.length || priorityFilter || dates.mode !== 'all');
 
   function clearFilters() {
-    setSearch(''); setStatusFilter(''); setPriorityFilter('');
+    setSearch(''); setStatusFilters([]); setPriorityFilter('');
     setDates({ mode: 'all', from: '', to: '' });
   }
 
@@ -511,13 +512,13 @@ export function RegisterView({
         </div>
         <div className="register-filter-panel" id={filterPanelId} hidden={!filtersOpen} role="group" aria-label="Filter options">
           <div className="register-filter-row">
-            <label className="compact-filter">
+            {isComplaint ? <StatusFilter value={statusFilters} onChange={setStatusFilters} /> : <label className="compact-filter">
               <span>Status</span>
-              <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
+              <select value={statusFilters[0] || ''} onChange={(event) => setStatusFilters(event.target.value ? [event.target.value as RecordStatus] : [])}>
                 <option value="">All statuses</option>
                 {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
               </select>
-            </label>
+            </label>}
             <label className="compact-filter">
               <span>Priority</span>
               <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>

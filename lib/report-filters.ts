@@ -8,7 +8,7 @@ export type DateMode = 'all' | 'day' | 'range';
 export interface DateFilter { mode: DateMode; from: string; to: string }
 export interface ReportFilters {
   type?: RecordType;
-  status?: RecordStatus;
+  statuses?: RecordStatus[];
   priority?: RecordPriority;
   search?: string;
   from?: string;
@@ -50,17 +50,19 @@ export function dateFilterParams(value: DateFilter) {
   return params;
 }
 
-// Shared by register queries and downloads so a filtered export uses identical dates.
+// Shared by register queries and downloads so every view uses identical filters.
 export function parseReportFilters(params: URLSearchParams): ReportFilters {
-  for (const key of ['type', 'status', 'priority', 'q', 'from', 'to', 'dateMode', 'cursor']) {
+  for (const key of ['type', 'priority', 'q', 'from', 'to', 'dateMode', 'cursor']) {
     if (params.getAll(key).length > 1) throw new Error(`Supply only one ${key} filter.`);
   }
   const type = params.get('type') || '';
-  const status = params.get('status') || '';
+  const selectedStatuses = params.getAll('status').filter(Boolean);
   const priority = params.get('priority') || '';
   const search = (params.get('q') || '').trim();
   if (type && type !== 'daily' && type !== 'complaint') throw new Error('Choose a valid record type.');
-  if (status && !STATUSES.includes(status as RecordStatus)) throw new Error('Choose a valid status.');
+  if (selectedStatuses.some((status) => !STATUSES.includes(status as RecordStatus))) throw new Error('Choose valid statuses.');
+  // Normalize duplicates and order so equivalent selections keep the same pagination cursor.
+  const statuses = STATUSES.filter((status) => selectedStatuses.includes(status));
   if (priority && !PRIORITIES.includes(priority as RecordPriority)) throw new Error('Choose a valid priority.');
   if (search.length > 250) throw new Error('Keep searches to 250 characters or fewer.');
   const from = params.get('from') || '';
@@ -73,7 +75,7 @@ export function parseReportFilters(params: URLSearchParams): ReportFilters {
   if (error) throw new Error(error);
   return {
     ...(type ? { type: type as RecordType } : {}),
-    ...(status ? { status: status as RecordStatus } : {}),
+    ...(statuses.length ? { statuses } : {}),
     ...(priority ? { priority: priority as RecordPriority } : {}),
     ...(search ? { search } : {}),
     ...(mode !== 'all' ? { from, to: mode === 'day' ? from : to } : {}),

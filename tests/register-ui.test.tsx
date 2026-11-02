@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RegisterView } from '../app/ReportingApp';
 import { edmontonDateKey } from '../lib/report-time';
@@ -164,7 +165,9 @@ describe('lazy register', () => {
     await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(3));
     fireEvent.change(search, { target: { value: 'new' } });
     fireEvent.change(screen.getByLabelText('Priority'), { target: { value: 'High' } });
-    fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'Open' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Status All statuses' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'Open' }));
+    fireEvent.click(screen.getByRole('checkbox', { name: 'In progress' }));
     await screen.findByText('999 Example Avenue');
     expect(oldSignal?.aborted).toBe(true);
     await act(async () => { resolveOld(Response.json({ weeks: [{ start: '2020-01-06', total: 444 }], total: 444 })); });
@@ -172,20 +175,67 @@ describe('lazy register', () => {
     const params = new URL(fetcher.mock.calls.at(-1)![0], 'https://cm.test').searchParams;
     expect(params.get('q')).toBe('new');
     expect(params.get('priority')).toBe('High');
-    expect(params.get('status')).toBe('Open');
+    expect(params.getAll('status')).toEqual(['Open', 'In progress']);
     expect(params.has('cursor')).toBe(false);
     expect(toggle.getAttribute('aria-label')).toBe('Filters, 2 active');
+    fireEvent.keyDown(screen.getByRole('checkbox', { name: 'In progress' }), { key: 'Escape' });
     fireEvent.click(toggle);
     expect(screen.queryByRole('group', { name: 'Filter options' })).toBeNull();
     expect(screen.getByText('999 Example Avenue')).toBeDefined();
     fireEvent.click(toggle);
     expect(screen.getByLabelText('Priority')).toHaveProperty('value', 'High');
-    expect(screen.getByLabelText('Status')).toHaveProperty('value', 'Open');
+    const statusToggle = screen.getByRole('button', { name: 'Status Open, In progress' });
+    fireEvent.click(statusToggle);
+    expect(screen.getByRole('checkbox', { name: 'Open' })).toHaveProperty('checked', true);
+    expect(screen.getByRole('checkbox', { name: 'In progress' })).toHaveProperty('checked', true);
     fireEvent.click(within(filterPanel).getByRole('button', { name: 'Clear filters' }));
     await screen.findByText('1 Example Avenue');
     expect(search).toHaveProperty('value', '');
+    expect(screen.getByRole('button', { name: 'Status All statuses' })).toBeDefined();
     expect(toggle.getAttribute('aria-label')).toBe('Filters');
     expect(within(filterPanel).getByRole('button', { name: 'Clear filters' })).toHaveProperty('disabled', true);
+  });
+
+  it('shows both selected complaint statuses and allows removing a selection or returning to all statuses', async () => {
+    const user = userEvent.setup();
+    const allRecords = [makeRecord(1), { ...makeRecord(2), status: 'In progress' }, { ...makeRecord(3), status: 'Resolved' }];
+    const fetcher = vi.fn(async (input: string) => {
+      const params = new URL(input, 'https://cm.test').searchParams;
+      const statuses = params.getAll('status');
+      const records = allRecords.filter((record) => !statuses.length || statuses.includes(record.status));
+      if (params.get('groupBy') === 'week') return Response.json({ weeks: [{ start: reportingWeekStart(), total: records.length }], total: records.length });
+      return Response.json({ records, total: records.length, nextCursor: null });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    render(<RegisterView mode="complaint" revision={0} onCreate={vi.fn()} onOpenRecord={vi.fn()} />);
+    await screen.findByText('3 Example Avenue');
+    await user.click(screen.getByRole('button', { name: 'Filters' }));
+    await user.click(screen.getByRole('button', { name: 'Status All statuses' }));
+    await user.tab();
+    await user.keyboard(' ');
+    await user.tab();
+    await user.keyboard(' ');
+    await screen.findByText('All 2 records in this week shown.');
+    expect(screen.getByText('1 Example Avenue')).toBeDefined();
+    expect(screen.getByText('2 Example Avenue')).toBeDefined();
+    expect(screen.queryByText('3 Example Avenue')).toBeNull();
+    expect(screen.getByText('2 records across 1 week')).toBeDefined();
+    await user.click(screen.getByRole('checkbox', { name: 'Open' }));
+    await screen.findByText('All 1 record in this week shown.');
+    expect(screen.queryByText('1 Example Avenue')).toBeNull();
+    expect(screen.getByText('2 Example Avenue')).toBeDefined();
+    await user.keyboard('{Escape}');
+    const toggle = screen.getByRole('button', { name: 'Status In progress' });
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(document.activeElement).toBe(toggle);
+    await user.click(toggle);
+    await user.click(screen.getByRole('button', { name: 'All statuses' }));
+    await screen.findByText('3 Example Avenue');
+    expect(screen.getByText('3 records across 1 week')).toBeDefined();
+    expect(screen.getAllByRole('checkbox').every((checkbox) => !(checkbox as HTMLInputElement).checked)).toBe(true);
+    expect(screen.getByRole('button', { name: 'Filters' })).toBeDefined();
+    await user.click(screen.getByRole('searchbox', { name: 'Search records' }));
+    expect(screen.queryByRole('checkbox')).toBeNull();
   });
 
   it('blocks invalid dates, allows today as a single day, and preserves filters when records refresh', async () => {

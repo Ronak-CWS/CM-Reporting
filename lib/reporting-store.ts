@@ -220,9 +220,13 @@ function recordWhere(filters: ReportFilters) {
   const conditions = ['1 = 1'];
   const values: SQLInputValue[] = [];
   for (const [column, value] of [
-    ['record_type', filters.type], ['status', filters.status], ['priority', filters.priority],
+    ['record_type', filters.type], ['priority', filters.priority],
   ]) {
     if (value) { conditions.push(`r.${column} = ?`); values.push(value); }
+  }
+  if (filters.statuses?.length) {
+    conditions.push(`r.status IN (${filters.statuses.map(() => '?').join(', ')})`);
+    values.push(...filters.statuses);
   }
   // Stored report dates are Mountain local dates, with or without an explicit offset.
   if (filters.from) { conditions.push('r.occurred_at >= ?'); values.push(filters.from); }

@@ -9,7 +9,7 @@ export interface DateFilter { mode: DateMode; from: string; to: string }
 export interface ReportFilters {
   type?: RecordType;
   statuses?: RecordStatus[];
-  priority?: RecordPriority;
+  priorities?: RecordPriority[];
   search?: string;
   from?: string;
   to?: string;
@@ -52,18 +52,19 @@ export function dateFilterParams(value: DateFilter) {
 
 // Shared by register queries and downloads so every view uses identical filters.
 export function parseReportFilters(params: URLSearchParams): ReportFilters {
-  for (const key of ['type', 'priority', 'q', 'from', 'to', 'dateMode', 'cursor']) {
+  for (const key of ['type', 'q', 'from', 'to', 'dateMode', 'cursor']) {
     if (params.getAll(key).length > 1) throw new Error(`Supply only one ${key} filter.`);
   }
   const type = params.get('type') || '';
   const selectedStatuses = params.getAll('status').filter(Boolean);
-  const priority = params.get('priority') || '';
+  const selectedPriorities = params.getAll('priority').filter(Boolean);
   const search = (params.get('q') || '').trim();
   if (type && type !== 'daily' && type !== 'complaint') throw new Error('Choose a valid record type.');
   if (selectedStatuses.some((status) => !STATUSES.includes(status as RecordStatus))) throw new Error('Choose valid statuses.');
   // Normalize duplicates and order so equivalent selections keep the same pagination cursor.
   const statuses = STATUSES.filter((status) => selectedStatuses.includes(status));
-  if (priority && !PRIORITIES.includes(priority as RecordPriority)) throw new Error('Choose a valid priority.');
+  if (selectedPriorities.some((priority) => !PRIORITIES.includes(priority as RecordPriority))) throw new Error('Choose valid priorities.');
+  const priorities = PRIORITIES.filter((priority) => selectedPriorities.includes(priority));
   if (search.length > 250) throw new Error('Keep searches to 250 characters or fewer.');
   const from = params.get('from') || '';
   const to = params.get('to') || '';
@@ -76,7 +77,7 @@ export function parseReportFilters(params: URLSearchParams): ReportFilters {
   return {
     ...(type ? { type: type as RecordType } : {}),
     ...(statuses.length ? { statuses } : {}),
-    ...(priority ? { priority: priority as RecordPriority } : {}),
+    ...(priorities.length ? { priorities } : {}),
     ...(search ? { search } : {}),
     ...(mode !== 'all' ? { from, to: mode === 'day' ? from : to } : {}),
   };

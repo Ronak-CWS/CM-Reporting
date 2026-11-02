@@ -136,13 +136,64 @@ describe('register pages', () => {
     expect((await page('type=complaint&status=Open&status=In+progress&status=Resolved')).total).toBe(1104);
     expect((await page('type=complaint&status=')).total).toBe(1104);
   });
+  it('matches any selected priority and keeps filtered pages, week counts, and exports consistent', async () => {
+    const db = runtime.storage!.sqlite;
+    try {
+      db.prepare("UPDATE report_records SET priority = 'Urgent' WHERE id = '00008'").run();
+      const otherFilters = `type=complaint&status=Open&status=In+progress&q=Missed&dateMode=day&from=${edmontonDateKey()}`;
+      const query = `${otherFilters}&priority=High&priority=Urgent`;
+      const first = await page(query);
+      expect(first.total).toBe(184);
+      expect(first.records).toHaveLength(50);
+      const records = [...first.records];
+      let cursor = first.nextCursor;
+      while (cursor) {
+        const next = await page(`${otherFilters}&priority=Urgent&priority=High&priority=Urgent&cursor=${cursor}`);
+        expect(next.total).toBe(first.total);
+        records.push(...next.records);
+        cursor = next.nextCursor;
+      }
+      expect(records).toHaveLength(184);
+      expect(new Set(records.map((record) => record.id)).size).toBe(184);
+      expect(new Set(records.map((record) => record.priority))).toEqual(new Set(['High', 'Urgent']));
+      expect(records.every((record) => record.recordType === 'complaint' && ['Open', 'In progress'].includes(record.status))).toBe(true);
+      expect(await (await get(`${query}&groupBy=week`)).json()).toEqual({ total: 184, weeks: [{ start: reportingWeekStart(), total: 184 }] });
+      const exportQuery = query.replace('type=complaint', 'type=complaints');
+      const exported = await exportRecords(new Request(`https://cm.test/api/export?${exportQuery}`));
+      expect(exported.status).toBe(200);
+      const csv = await exported.text();
+      expect(csv.split('\r\n')).toHaveLength(185);
+      expect(records.every((record) => csv.includes(record.referenceNumber))).toBe(true);
+      const excel = await exportRecords(new Request(`https://cm.test/api/export?${exportQuery}&format=xlsx`));
+      expect(excel.status).toBe(200);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(await excel.arrayBuffer());
+      const exportedReferences = workbook.worksheets[0].getColumn(1).values
+        .filter((value) => typeof value === 'string' && value.startsWith('CM-CMP-TEST-'));
+      expect(exportedReferences).toEqual(records.map((record) => record.referenceNumber));
+      expect((await get(`${otherFilters}&priority=High&cursor=${first.nextCursor}`)).status).toBe(400);
+    } finally { db.prepare("UPDATE report_records SET priority = 'Normal' WHERE id = '00008'").run(); }
+  });
+  it('supports multiple priorities for daily reports, single priorities, and clearing the filter', async () => {
+    const db = runtime.storage!.sqlite;
+    try {
+      db.prepare("UPDATE report_records SET record_type = 'daily', priority = 'Urgent' WHERE id = '00008'").run();
+      const result = await page('type=daily&priority=High&priority=Urgent');
+      expect(result.total).toBe(2);
+      expect(result.records.map((record) => record.id)).toEqual(['01104', '00008']);
+      expect((await page('type=daily&priority=Urgent')).records.map((record) => record.id)).toEqual(['00008']);
+      expect((await page('priority=Low&priority=Normal&priority=High&priority=Urgent')).total).toBe(1105);
+      expect((await page('priority=')).total).toBe(1105);
+      expect((await page('priority=Low')).total).toBe(0);
+    } finally { db.prepare("UPDATE report_records SET record_type = 'complaint', priority = 'Normal' WHERE id = '00008'").run(); }
+  });
   it.each([
     'dateMode=range&from=2024-02-29&to=2024-02-29',
     'dateMode=range&from=2024-03-01&to=2024-02-29',
     'dateMode=range&from=2024-03-01', 'dateMode=day&from=2099-01-01',
     'dateMode=day&from=2026-02-29', 'dateMode=day&from=2024-02-29&to=2024-03-01',
     'status=Unknown', 'priority=Unknown', 'type=Unknown', 'cursor=invalid', 'status=Open&status=Unknown',
-    'type=complaint&type=daily', 'priority=High&priority=Low',
+    'type=complaint&type=daily', 'priority=High&priority=Unknown', 'priority=High&priority=%27%20OR%201%3D1--',
     'groupBy=day', 'groupBy=week&groupBy=week', 'groupBy=week&cursor=invalid',
   ])('rejects invalid filters or cursors: %s', async (query) => { expect((await get(query)).status).toBe(400); });
   it('rejects a cursor reused with different filters', async () => {

@@ -9,7 +9,7 @@ import LocationAutocomplete from './components/LocationAutocomplete';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import DateFilter from './components/DateFilter';
-import StatusFilter from './components/StatusFilter';
+import MultiSelectFilter from './components/MultiSelectFilter';
 import { useRecordPage } from '../lib/use-record-page';
 import { useReportWeeks } from '../lib/use-report-weeks';
 import { reportingWeekLabel, reportingWeekQuery, reportingWeekStart, type ReportWeek } from '../lib/report-weeks';
@@ -28,6 +28,7 @@ import type {
   CreateReportRecordInput,
   ReportRecord,
   RecordStatus,
+  RecordPriority,
   RecordType,
   UpdateReportRecordInput,
 } from '../lib/report-types';
@@ -458,24 +459,24 @@ export function RegisterView({
   const isComplaint = mode === 'complaint';
   const [search, setSearch] = useState('');
   const [statusFilters, setStatusFilters] = useState<RecordStatus[]>([]);
-  const [priorityFilter, setPriorityFilter] = useState('');
+  const [priorityFilters, setPriorityFilters] = useState<RecordPriority[]>([]);
   const [dates, setDates] = useState<DateFilterValue>({ mode: 'all', from: '', to: '' });
   const [filtersOpen, setFiltersOpen] = useState(false);
   const filterPanelId = useId();
-  const activeFilterCount = Number(statusFilters.length > 0) + Number(Boolean(priorityFilter)) + Number(dates.mode !== 'all');
+  const activeFilterCount = Number(statusFilters.length > 0) + Number(priorityFilters.length > 0) + Number(dates.mode !== 'all');
   const dateError = dateFilterError(dates);
   const params = dateFilterParams(dates);
   params.set('type', mode);
   if (search.trim()) params.set('q', search.trim());
   for (const status of statusFilters) params.append('status', status);
-  if (priorityFilter) params.set('priority', priorityFilter);
+  for (const priority of priorityFilters) params.append('priority', priority);
   const query = params.toString();
   const summary = useReportWeeks(query, revision, !dateError);
   const currentWeek = reportingWeekStart();
-  const hasFilters = Boolean(search || statusFilters.length || priorityFilter || dates.mode !== 'all');
+  const hasFilters = Boolean(search || statusFilters.length || priorityFilters.length || dates.mode !== 'all');
 
   function clearFilters() {
-    setSearch(''); setStatusFilters([]); setPriorityFilter('');
+    setSearch(''); setStatusFilters([]); setPriorityFilters([]);
     setDates({ mode: 'all', from: '', to: '' });
   }
 
@@ -512,20 +513,10 @@ export function RegisterView({
         </div>
         <div className="register-filter-panel" id={filterPanelId} hidden={!filtersOpen} role="group" aria-label="Filter options">
           <div className="register-filter-row">
-            {isComplaint ? <StatusFilter value={statusFilters} onChange={setStatusFilters} /> : <label className="compact-filter">
-              <span>Status</span>
-              <select value={statusFilters[0] || ''} onChange={(event) => setStatusFilters(event.target.value ? [event.target.value as RecordStatus] : [])}>
-                <option value="">All statuses</option>
-                {STATUS_OPTIONS.map((status) => <option key={status}>{status}</option>)}
-              </select>
-            </label>}
-            <label className="compact-filter">
-              <span>Priority</span>
-              <select value={priorityFilter} onChange={(event) => setPriorityFilter(event.target.value)}>
-                <option value="">All priorities</option>
-                {PRIORITIES.map((priority) => <option key={priority}>{priority}</option>)}
-              </select>
-            </label>
+            <MultiSelectFilter label="Status" plural="statuses" options={STATUS_OPTIONS} pillClassName="status-pill"
+              value={statusFilters} onChange={setStatusFilters} />
+            <MultiSelectFilter label="Priority" plural="priorities" options={PRIORITIES} pillClassName="priority-pill"
+              value={priorityFilters} onChange={setPriorityFilters} />
             <DateFilter value={dates} onChange={setDates} />
           </div>
           <div className="register-filter-actions">

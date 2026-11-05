@@ -71,6 +71,16 @@ describe('shipped service community coverage', () => {
     expect(catalogue.resolve('pickup', 'Fort McMurray', '100 CHRISTINA DRIVE')).toBeNull();
   });
 
+  it('finds merged rural addresses with their Fort McMurray community ready to select', () => {
+    expect(catalogue.searchLocations('100 garden lane').options).toContainEqual({
+      community: 'Fort McMurray', address: '100 GARDEN LANE (Draper)', street: 'GARDEN LANE (Draper)',
+    });
+    expect(catalogue.searchLocations('fortmac 27 poplar crescent').options).toEqual(expect.arrayContaining([
+      { community: 'Fort McMurray', address: '27 POPLAR CRESCENT', street: 'POPLAR CRESCENT' },
+      { community: 'Fort McMurray', address: '27 POPLAR CRESCENT (Gregoire Lake Estates)', street: 'POPLAR CRESCENT (Gregoire Lake Estates)' },
+    ]));
+  });
+
   it('preserves every existing Crowsnest Pass address and restricts town-specific choices', () => {
     const towns = new Set(['Blairmore', 'Coleman', 'Frank', 'Hillcrest']);
     const townRows = rows.filter((row) => towns.has(row.community));

@@ -6,6 +6,8 @@ The eye button beside the password shows or hides the entered text. There is no 
 
 For community searches, `fortmac` or `fort mac` finds **Fort McMurray**, which includes Gregoire Lake Estates and Draper. Their address and street choices include the original locality in parentheses to distinguish overlapping names and house numbers. Anzac, Conklin, Janvier, Fort McKay and Saprae Creek Estates remain separate choices. Saved reports and the source address catalogue retain their existing data.
 
+**Find an address** searches the approved service addresses across all communities. Results show both the address and community; selecting one fills the community and pickup address, or the street name for a street blockage. Drivers can also choose the community first and use the existing location field. Editing a selected search invalidates its filled location until another listed result is chosen. The daily register includes a separate **Street address** column.
+
 For **Oops! tag**, drivers may enter a reason or leave it blank. Any entered reason appears in the review and is saved with the tag reason in reports.
 
 ## Test locally

@@ -32,7 +32,9 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: string) => {
     if (input.endsWith('/api/auth/driver/logout')) return new Response(null, { status: 200 });
     const url = new URL(input, 'https://cm.test');
-    return Response.json(catalogue.search(url.searchParams.get('kind') as LocationKind, url.searchParams.get('q') || '', url.searchParams.get('community') || ''));
+    return Response.json(url.searchParams.get('kind') === 'location'
+      ? catalogue.searchLocations(url.searchParams.get('q') || '', url.searchParams.get('scope') as 'pickup' | 'street')
+      : catalogue.search(url.searchParams.get('kind') as LocationKind, url.searchParams.get('q') || '', url.searchParams.get('community') || ''));
   }));
   URL.createObjectURL = vi.fn(() => 'blob:photo-test');
   URL.revokeObjectURL = vi.fn();

@@ -228,6 +228,18 @@ it('blocks driver access to office routes in both the proxy and the handlers', a
   expect((await submitDriverReport(request('/api/blocked-call', { method: 'POST', headers: { origin }, body: reportForm() }))).status).toBe(401);
 });
 
+it('lets signed-in drivers search addresses across communities with bounded, validated results', async () => {
+  const route = '/api/locations?kind=location&q=123%20test';
+  expect((await getLocations(request(route))).status).toBe(401);
+  const { cookie } = await login();
+  const response = await getLocations(request(route, {}, cookie));
+  expect(response.status).toBe(200);
+  expect(response.headers.get('cache-control')).toBe('private, no-store');
+  expect(await response.json()).toEqual({ options: [{ community: 'Test community', address: '123 Test Street', street: 'Test Street' }], hasMore: false });
+  expect((await getLocations(request(`${route}&scope=invalid`, {}, cookie))).status).toBe(400);
+  expect((await getLocations(request(`/api/locations?kind=location&q=${'x'.repeat(501)}`, {}, cookie))).status).toBe(400);
+});
+
 it('validates locations, report type, photos and submission origin', async () => {
   const { cookie } = await login();
   for (const changes of [{ recordType: 'complaint' }, { category: 'Other' }, { siteAddress: 'Unlisted street' }]) {

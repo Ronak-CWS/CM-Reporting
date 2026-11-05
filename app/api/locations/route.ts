@@ -12,13 +12,17 @@ export async function GET(request: Request) {
   const kind = params.get('kind') || 'community';
   const query = params.get('q') || '';
   const community = params.get('community') || '';
+  const scope = params.get('scope') || 'pickup';
   const headers = { 'Cache-Control': 'private, no-store' };
-  if (!['community', 'address', 'street'].includes(kind) || query.length > 500 || community.length > 250) {
+  if (!['community', 'address', 'street', 'location'].includes(kind) || query.length > 500 || community.length > 250 || (kind === 'location' && !['pickup', 'street'].includes(scope))) {
     return NextResponse.json({ error: 'The location search is invalid.' }, { status: 400, headers });
   }
   const locationCatalogue = getLocationCatalogue();
   if (!locationCatalogue.available) {
     return NextResponse.json({ error: 'The service address list is not available. Please contact the office.' }, { status: 503, headers });
   }
-  return NextResponse.json(locationCatalogue.search(kind as LocationKind, query, community), { headers });
+  const result = kind === 'location'
+    ? locationCatalogue.searchLocations(query, scope as 'pickup' | 'street')
+    : locationCatalogue.search(kind as LocationKind, query, community);
+  return NextResponse.json(result, { headers });
 }

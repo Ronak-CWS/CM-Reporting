@@ -28,6 +28,8 @@ export default function BlockedCallWizard({
   const [location, setLocation] = useState('');
   const [communitySelected, setCommunitySelected] = useState(false);
   const [locationSelected, setLocationSelected] = useState(false);
+  const [addressSearch, setAddressSearch] = useState('');
+  const [addressSearchSelected, setAddressSearchSelected] = useState(false);
   const [streetFrom, setStreetFrom] = useState('');
   const [streetTo, setStreetTo] = useState('');
   const [reasonCode, setReasonCode] = useState('');
@@ -115,6 +117,7 @@ export default function BlockedCallWizard({
       setOopsTagReason('');
       setVehiclePlates(['']); setLocation(''); setStreetFrom(''); setStreetTo('');
       setLocationSelected(false);
+      setAddressSearch(''); setAddressSearchSelected(false);
     }
     setScope(nextScope);
     showStep(1);
@@ -257,7 +260,7 @@ export default function BlockedCallWizard({
                 <h1 ref={headingRef} tabIndex={-1}>{TITLES[step]}</h1>
                 <p>{[
                   'Choose the area you could not service.',
-                  isStreet ? 'Search and select the community and street.' : 'Search and select the community and pickup address.',
+                  isStreet ? 'Find an address, or choose a community and street.' : 'Find an address, or choose a community and pickup address.',
                   'Tap the reason that fits best.',
                   'Show the blockage. One photo is required.',
                   driverMode ? 'Check the details before submitting.' : 'Check the details. Your name is filled in from your account.',
@@ -283,10 +286,25 @@ export default function BlockedCallWizard({
 
                   {step === 1 ? (
                     <div className="driver-field-stack">
+                      <LocationAutocomplete id="driver-address-search" label="Find an address" kind="location" scope={isStreet ? 'street' : 'pickup'} value={addressSearch} selected={addressSearchSelected} placeholder="Search addresses in all communities"
+                        hint={`Select a result to fill the community and ${isStreet ? 'street' : 'pickup address'} below.`}
+                        onChange={(value, selected) => {
+                          setAddressSearch(value); setAddressSearchSelected(selected);
+                          if (!selected) {
+                            setCommunity(''); setCommunitySelected(false); setLocation(''); setLocationSelected(false); setStreetFrom(''); setStreetTo('');
+                          }
+                        }}
+                        onSelectLocation={(option) => {
+                          setCommunity(option.community); setCommunitySelected(true);
+                          setLocation(isStreet ? option.street : option.address); setLocationSelected(true);
+                          setStreetFrom(''); setStreetTo(''); setError('');
+                        }} />
+                      <p className="driver-location-alternative">Or choose a community first</p>
                       <LocationAutocomplete id="driver-community" label="Community" kind="community" value={community} selected={communitySelected} placeholder="Search communities" onChange={(value, selected) => {
                         setCommunity(value); setCommunitySelected(selected); setLocation(''); setLocationSelected(false); setStreetFrom(''); setStreetTo('');
+                        setAddressSearch(''); setAddressSearchSelected(false);
                       }} />
-                      <LocationAutocomplete key={`${scope}:${community}`} id="driver-location" label={isStreet ? 'Street name' : 'Pickup address or site'} kind={isStreet ? 'street' : 'address'} community={community} value={location} selected={locationSelected} disabled={!communitySelected} placeholder={isStreet ? 'Search streets' : 'Search service addresses'} onChange={(value, selected) => { setLocation(value); setLocationSelected(selected); }} />
+                      <LocationAutocomplete key={`${scope}:${community}`} id="driver-location" label={isStreet ? 'Street name' : 'Pickup address or site'} kind={isStreet ? 'street' : 'address'} community={community} value={location} selected={locationSelected} disabled={!communitySelected} placeholder={isStreet ? 'Search streets' : 'Search service addresses'} onChange={(value, selected) => { setLocation(value); setLocationSelected(selected); setAddressSearch(''); setAddressSearchSelected(false); }} />
                       {isStreet ? (
                         <details className="driver-optional" open={streetFrom || streetTo ? true : undefined}>
                           <summary>Add the affected section <span>(optional)</span></summary>

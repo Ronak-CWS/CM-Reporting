@@ -48,10 +48,12 @@
 .driver-field-stack { display: grid; gap: 22px; }
 .driver-field-stack > label { display: grid; gap: 9px; color: #29485d; font-size: .88rem; font-weight: 650; }
 .driver-field-hint { margin: 0; color: #607984; font-size: .86rem; line-height: 1.5; }
+.driver-location-alternative { display: flex; align-items: center; gap: 12px; margin: 0; color: #607984; font-size: .78rem; }
+.driver-location-alternative::before, .driver-location-alternative::after { content: ''; flex: 1; height: 1px; background: #dce7e7; }
 .location-autocomplete { position: relative; display: grid; gap: 9px; min-width: 0; }
 .location-autocomplete > label { color: #29485d; font-size: .88rem; font-weight: 650; }
 .location-input { position: relative; }
-.location-input input { padding-right: 42px; }
+.driver-field-stack .location-input input { padding-right: 42px; }
 .location-input input:disabled { background: #f1f5f5; cursor: not-allowed; }
 .location-input-icon { position: absolute; right: 15px; top: 50%; transform: translateY(-50%); color: #13849a; font-size: 1.4rem; pointer-events: none; }
 .location-input--selected input { border-color: #62ad98; }
@@ -60,6 +62,9 @@
 .location-dropdown ul { list-style: none; max-height: 240px; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0; }
 .location-dropdown li { min-height: 48px; padding: 13px 14px; border-bottom: 1px solid #edf2f3; color: #29485d; font-size: .9rem; line-height: 1.45; cursor: pointer; overflow-wrap: anywhere; }
 .location-dropdown li:hover, .location-dropdown li[aria-selected='true'] { background: #e1f0f4; color: #0b5369; }
+.location-option-address, .location-option-community { display: block; }
+.location-option-address { font-weight: 600; }
+.location-option-community { margin-top: 3px; color: #617a86; font-size: .76rem; }
 .location-dropdown p { margin: 0; padding: 12px 14px; color: #607984; font-size: .8rem; line-height: 1.45; }
 .location-search-error > .text-button { margin: 0 14px 12px; min-height: 40px; }
 .driver-plate-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }

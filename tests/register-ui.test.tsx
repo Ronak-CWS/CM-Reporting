@@ -31,6 +31,22 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe('lazy register', () => {
+  it('shows each blocked-call street or pickup address in its own column', async () => {
+    const record = { ...makeRecord(1), recordType: 'daily' as const, siteAddress: '53 POPLAR CRESCENT', customerAddress: '', issueDescription: 'A bin was left on the sidewalk.' };
+    vi.stubGlobal('fetch', vi.fn(async (input: string) => new URL(input, 'https://cm.test').searchParams.get('groupBy') === 'week'
+      ? Response.json({ weeks: [{ start: reportingWeekStart(), total: 1 }], total: 1 })
+      : Response.json({ records: [record], total: 1, nextCursor: null })));
+    const onOpenRecord = vi.fn();
+    render(<RegisterView mode="daily" revision={0} onCreate={vi.fn()} onOpenRecord={onOpenRecord} />);
+    const row = await screen.findByRole('button', { name: /^CM-CMP-0001/ });
+    expect(row.querySelector('.record-cell--address')?.textContent).toContain('53 POPLAR CRESCENT');
+    expect(row.querySelector('.record-cell--address .record-cell__mobile-label')?.textContent).toBe('Street address');
+    expect(row.querySelector('.record-cell--description')?.textContent).not.toContain('53 POPLAR CRESCENT');
+    expect(document.querySelector('.record-table__head')?.textContent).toContain('Street address');
+    fireEvent.click(row);
+    expect(onOpenRecord).toHaveBeenCalledWith(record);
+  });
+
   it.each(['complaint', 'daily'] as const)('starts %s with no filters, opens this week, and loads older weeks only on demand', async (mode) => {
     const current = reportingWeekStart();
     const earlier = new Date(`${current}T12:00:00Z`);

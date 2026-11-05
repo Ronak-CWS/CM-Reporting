@@ -11,7 +11,9 @@ vi.mock('next/image', () => ({ default: () => null }));
 const catalogue = createLocationCatalogue(locations);
 function locationResponse(url: string) {
   const params = new URL(url, 'https://cm.test').searchParams;
-  return { ok: true, json: async () => catalogue.search(params.get('kind') as 'community' | 'street' | 'address', params.get('q') || '', params.get('community') || '') };
+  return { ok: true, json: async () => params.get('kind') === 'location'
+    ? catalogue.searchLocations(params.get('q') || '', params.get('scope') as 'pickup' | 'street')
+    : catalogue.search(params.get('kind') as 'community' | 'street' | 'address', params.get('q') || '', params.get('community') || '') };
 }
 
 beforeEach(() => {
@@ -40,6 +42,49 @@ async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
 }
 
 describe('simple driver flow', () => {
+  it.each(['pickup', 'street'] as const)('fills the community and %s location after an address search', async (scope) => {
+    render(<BlockedCallWizard reporterName="" driverMode onClose={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /A pickup location/ : /A street \/ street block/ }));
+    const search = screen.getByLabelText('Find an address');
+    expect(search).toHaveProperty('required', false);
+    await user.type(search, '123 test');
+    const option = await screen.findByRole('option', { name: '123 Test Street, Test community' });
+    expect(option.textContent).toContain('123 Test Street');
+    expect(option.textContent).toContain('Test community');
+    await user.keyboard('{ArrowDown}{Enter}');
+    expect(screen.getByLabelText('Community')).toHaveProperty('value', 'Test community');
+    expect(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name')).toHaveProperty('value', scope === 'pickup' ? '123 Test Street' : 'Test Street');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    expect(screen.getByLabelText('Find an address')).toHaveProperty('value', '123 Test Street');
+    await user.type(screen.getByLabelText('Find an address'), 'x');
+    expect(screen.getByLabelText('Community')).toHaveProperty('value', '');
+    expect(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name')).toHaveProperty('value', '');
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'Where is the blockage?' })).toBeTruthy();
+    expect((screen.getByLabelText('Community') as HTMLInputElement).validity.valueMissing).toBe(true);
+    expect(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name')).toHaveProperty('disabled', true);
+  });
+
+  it('allows switching from address search to community-first selection', async () => {
+    render(<BlockedCallWizard reporterName="" driverMode onClose={vi.fn()} />);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole('button', { name: /A pickup location/ }));
+    await user.type(screen.getByLabelText('Find an address'), '123 test');
+    await user.click(await screen.findByRole('option', { name: '123 Test Street, Test community' }));
+    await user.clear(screen.getByLabelText('Community'));
+    await user.type(screen.getByLabelText('Community'), 'Second');
+    await user.click(await screen.findByRole('option', { name: 'Second community' }));
+    expect(screen.getByLabelText('Find an address')).toHaveProperty('value', '');
+    expect(screen.getByLabelText('Pickup address or site')).toHaveProperty('value', '');
+    await user.type(screen.getByLabelText('Pickup address or site'), '789');
+    await user.click(await screen.findByRole('option', { name: '789 Other Road' }));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
+  });
+
   it('allows a blank Oops! tag reason and includes optional details in review and submission', async () => {
     const save = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ receipt: { id: 'saved', referenceNumber: 'CM-DAY-TEST', siteAddress: '123 Test Street', registeredCommunity: 'Test community', photoCount: 1 } }) });
     vi.stubGlobal('fetch', (url: string, options: unknown) => url.startsWith('/api/locations') ? Promise.resolve(locationResponse(url)) : save(url, options));

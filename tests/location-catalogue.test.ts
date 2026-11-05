@@ -24,6 +24,24 @@ describe('approved location catalogue', () => {
     expect(catalogue.resolve('street', 'Test community', '123 Test Street')).toBeNull();
     expect(catalogue.resolve('pickup', 'test community', '123 test street')).toEqual({ registeredCommunity: 'Test community', siteAddress: '123 Test Street' });
   });
+  it('finds addresses across communities and preserves identical addresses in different communities', () => {
+    const catalogue = createLocationCatalogue([
+      ...locations,
+      { community: 'Second community', address: '123 Test Street', street: 'Test Street' },
+      { community: 'Test community', address: '123 Test Street', street: 'Test Street' },
+      { community: 'Test community', address: '9 Unnamed Site', street: '' },
+    ]);
+    expect(catalogue.searchLocations('street 123').options).toEqual([
+      { community: 'Second community', address: '123 Test Street', street: 'Test Street' },
+      { community: 'Test community', address: '123 Test Street', street: 'Test Street' },
+    ]);
+    expect(catalogue.searchLocations('123 second').options).toEqual([
+      { community: 'Second community', address: '123 Test Street', street: 'Test Street' },
+    ]);
+    expect(catalogue.searchLocations('   ')).toEqual({ options: [], hasMore: false });
+    expect(catalogue.searchLocations('unnamed', 'pickup').options).toHaveLength(1);
+    expect(catalogue.searchLocations('unnamed', 'street').options).toEqual([]);
+  });
   it('deduplicates options and bounds results without hiding that more matches exist', () => {
     const many = createLocationCatalogue([...locations, ...locations, ...Array.from({ length: 30 }, (_, index) => ({ community: 'Test community', address: `${index + 1} Example Road`, street: 'Example Road' }))]);
     const result = many.search('address', 'example', 'Test community');
@@ -31,6 +49,10 @@ describe('approved location catalogue', () => {
     expect(result.hasMore).toBe(true);
     expect(result.options.slice(0, 3)).toEqual(['1 Example Road', '2 Example Road', '3 Example Road']);
     expect(many.search('street', 'example', 'Test community').options).toEqual(['Example Road']);
+    const global = many.searchLocations('example');
+    expect(global.options).toHaveLength(25);
+    expect(global.hasMore).toBe(true);
+    expect(global.options.slice(0, 3).map((option) => option.address)).toEqual(['1 Example Road', '2 Example Road', '3 Example Road']);
   });
   it('does not accept driver free text when the catalogue is missing', async () => {
     const response = await GET(new Request('https://cm.test/api/locations?kind=community'));

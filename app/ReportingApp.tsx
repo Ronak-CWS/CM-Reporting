@@ -413,7 +413,7 @@ function RegisterWeek({ week, mode, query, revision, current, initiallyOpen, onO
       {page.records.length ? <>
         <div className="record-table__head" aria-hidden="true">
           <span>Reference</span><span>{isComplaint ? 'Community' : 'Event and community'}</span>
-          {isComplaint ? <span>Address</span> : null}
+          <span>{isComplaint ? 'Address' : 'Street address'}</span>
           <span>{isComplaint ? 'Inquiry or complaint' : 'Operational detail'}</span>
           <span>{isComplaint ? 'Resolution' : 'Owner'}</span><span>Status</span>
         </div>
@@ -424,10 +424,10 @@ function RegisterWeek({ week, mode, query, revision, current, initiallyOpen, onO
               <strong>{isComplaint ? record.registeredCommunity : record.blockage ? blockageScopeLabel(record.blockage.scope) : record.category}</strong>
               {!isComplaint ? <small>{record.registeredCommunity}</small> : null}
             </span>
-            {isComplaint ? <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">Address</small><strong>{record.customerAddress || 'Not recorded'}</strong></span> : null}
+            <span className="record-cell record-cell--address"><small className="record-cell__mobile-label">{isComplaint ? 'Address' : 'Street address'}</small><strong>{(isComplaint ? record.customerAddress : record.siteAddress) || 'Not recorded'}</strong></span>
             <span className="record-cell record-cell--description">
               <strong>{record.issueDescription}</strong>
-              <small>{isComplaint ? record.contactMedium : [record.siteAddress, record.photos?.length ? `${record.photos.length} ${record.photos.length === 1 ? 'photo' : 'photos'}` : ''].filter(Boolean).join(' · ') || 'No location details'}</small>
+              <small>{isComplaint ? record.contactMedium : record.photos?.length ? `${record.photos.length} ${record.photos.length === 1 ? 'photo' : 'photos'}` : 'No photos'}</small>
             </span>
             <span className="record-cell record-cell--resolution">
               <strong>{isComplaint ? record.resolutionDescription || 'Pending' : record.assignedTo || 'Unassigned'}</strong>
@@ -531,7 +531,7 @@ export function RegisterView({
         </div>
       </section>
 
-      <section className={`panel register-panel${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={summary.loading}>
+      <section className={`panel register-panel register-panel--with-address${isComplaint ? ' register-panel--complaints' : ''}`} aria-label={isComplaint ? 'Complaint records' : 'Daily records'} aria-busy={summary.loading}>
         {summary.weeks.length ? <div className="register-weeks">
           {!hasFilters && !summary.weeks.some((week) => week.start === currentWeek) ? <p className="register-week__empty">No {isComplaint ? 'complaints' : 'blocked calls'} this week. Open an earlier week below to view its reports.</p> : null}
           {summary.weeks.map((week, index) => <RegisterWeek key={`${query}:${week.start}`} week={week} mode={mode} query={query} revision={revision}

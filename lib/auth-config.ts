@@ -79,8 +79,8 @@ export function guestLoginConfig() {
 export function driverLoginConfig() {
   const password = process.env.CM_DRIVER_LOGIN_PASSWORD || '';
   if (!password) return null;
-  if (password.length < 12 || password.length > 128 || password.startsWith('<')) {
-    throw new Error('Set CM_DRIVER_LOGIN_PASSWORD to a private password of 12 to 128 characters, or leave it blank to disable driver access.');
+  if (password.length > 128 || password.startsWith('<')) {
+    throw new Error('Set CM_DRIVER_LOGIN_PASSWORD to a private password of at most 128 characters, or leave it blank to disable driver access.');
   }
   // Driver access is independent of the Microsoft registration and guest window.
   return {

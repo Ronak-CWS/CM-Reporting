@@ -4,6 +4,7 @@ import { redirect } from 'next/navigation';
 import { appPath } from '../../../lib/app-path.js';
 import { driverLoginConfig, publicOrigin } from '../../../lib/auth-config';
 import { signedInDriver } from '../../../lib/request-access';
+import DriverPasswordInput from '../../components/DriverPasswordInput';
 
 export const dynamic = 'force-dynamic';
 
@@ -33,7 +34,7 @@ export default async function DriverLogin({ searchParams }: { searchParams: Prom
       {error ? <p role="alert" className="login-message login-message--error">{error}</p> : null}
       {ready ? <form className="driver-signin" action={appPath('/api/auth/driver')} method="post">
         <label htmlFor="driver-password">Driver password</label>
-        <input id="driver-password" name="password" type="password" autoComplete="current-password" required maxLength={128} />
+        <DriverPasswordInput />
         <button className="button button--primary button--wide" type="submit">Open blocked-call form</button>
       </form> : <p role="status" className="login-message">Driver access is not available. Please contact the office.</p>}
       <p className="login-footnote"><a href={appPath('/login')}>Office reporting sign-in</a></p>

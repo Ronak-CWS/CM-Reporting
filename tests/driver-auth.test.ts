@@ -104,13 +104,25 @@ describe('driver password sessions', () => {
     expect(driverLoginConfig()).toBeNull();
     expect((await driverLogin(loginRequest())).headers.get('location')).toContain('error=unavailable');
     expect(driverSession(request('/api/auth/driver/session')).status).toBe(401);
-    for (const value of ['short', 'x'.repeat(129), '<replace-with-a-real-password>']) {
+    for (const value of ['x'.repeat(129), '<replace-with-a-real-password>']) {
       vi.stubEnv('CM_DRIVER_LOGIN_PASSWORD', value);
       expect(validateAuthenticationConfig).toThrow('CM_DRIVER_LOGIN_PASSWORD');
       const denied = await driverLogin(loginRequest());
       expect(denied.cookies.get(DRIVER_SESSION_COOKIE)).toBeUndefined();
       expect(await denied.text()).not.toContain(value);
     }
+  });
+
+  it.each(['7', '1234', 'short', 'x'.repeat(128)])('allows a non-empty driver password of %s without a minimum length', async (value) => {
+    password = value;
+    vi.stubEnv('CM_DRIVER_LOGIN_PASSWORD', password);
+    expect(validateAuthenticationConfig).not.toThrow();
+    const denied = await driverLogin(loginRequest('incorrect-password'));
+    expect(denied.headers.get('location')).toContain('error=signin');
+    expect(denied.cookies.get(DRIVER_SESSION_COOKIE)).toBeUndefined();
+    const { cookie } = await login();
+    expect(driverSession(request('/api/auth/driver/session', {}, cookie)).status).toBe(200);
+    expect(officeSession(request('/api/auth/session', {}, cookie)).status).toBe(401);
   });
 
   it('uses a separate private 12-hour cookie that survives restarts and rotates on login', async () => {

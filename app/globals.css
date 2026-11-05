@@ -278,6 +278,11 @@ a:focus-visible {
 .driver-signin label { font-size: .9rem; font-weight: 650; }
 .driver-signin input { min-width: 0; width: 100%; min-height: 48px; padding: 10px 12px; border: 1px solid var(--slate-300); border-radius: 8px; background: var(--paper); color: var(--navy-900); font-size: 1rem; }
 .driver-signin input:focus-visible { outline: 3px solid var(--teal-700); outline-offset: 2px; }
+.driver-password-field { position: relative; }
+.driver-password-field input { padding-right: 58px; }
+.driver-password-toggle { position: absolute; top: 0; right: 0; bottom: 0; display: grid; place-items: center; width: 48px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--slate-500); cursor: pointer; }
+.driver-password-toggle:hover { color: var(--teal-700); background: var(--teal-100); }
+.driver-password-toggle:focus-visible { outline: 3px solid var(--teal-700); outline-offset: -4px; }
 .guest-session-notice { margin: 0 0 22px; padding: 14px 18px; border: 1px solid #e5bb8d; border-radius: 10px; background: var(--orange-100); color: var(--navy-900); font-size: .9rem; line-height: 1.6; }
 .session-notice { position: fixed; z-index: 1000; bottom: 16px; left: 50%; transform: translateX(-50%); width: min(540px, calc(100% - 32px)); padding: 18px; border: 1px solid var(--teal-700); border-radius: 12px; background: var(--paper); box-shadow: var(--shadow-md); }
 .session-notice p { margin: 0 0 12px; line-height: 1.5; }

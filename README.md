@@ -52,6 +52,8 @@ Identical choices within a community are collapsed; distinct units are retained.
 
 Blairmore, Coleman, Frank and Hillcrest use their original workbook community names and matching addresses. The existing Crowsnest Pass group remains available, so 2,409 address choices are also offered under the individual towns. Routing subareas do not override workbook community names. The importer checks every source community against the generated list, including Enchant/Hays service-address additions and Wood Buffalo rural localities; the only spelling normalization is Beaver Mine to Beaver Mines.
 
+Community searches group Gregoire Lake Estates and Draper under Fort McMurray; `fortmac` and `fort mac` find that choice. Their locations include the original locality in parentheses to distinguish overlapping addresses and streets. Anzac, Conklin, Janvier, Fort McKay and Saprae Creek Estates remain separate. This produces 33 selectable communities from the 35 source communities without changing the source catalogue or previously saved reports.
+
 Generated private files `data/service-locations.json` and `data/service-locations-audit.json` are present locally and ignored by Git. Transfer them separately when installing the application. Reproduce the snapshot using Python's standard library:
 
 ```powershell

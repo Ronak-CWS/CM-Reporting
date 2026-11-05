@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import DriverLogin from '../app/blocked-call/login/page';
 import SessionNotice from '../app/components/SessionNotice';
@@ -36,6 +37,35 @@ it('shows an independent password form without exposing the configured password'
 it('uses an absolute destination to avoid adding the application base path twice after sign-in', async () => {
   state.authenticated = true;
   await expect(DriverLogin({ searchParams: Promise.resolve({}) })).rejects.toThrow('Redirect: https://cm.test/cm-reporting/blocked-call');
+});
+
+it('shows and hides a short entered password without submitting or changing it', async () => {
+  vi.stubEnv('CM_DRIVER_LOGIN_PASSWORD', '7');
+  const user = userEvent.setup();
+  render(await DriverLogin({ searchParams: Promise.resolve({}) }));
+  const input = screen.getByLabelText('Driver password') as HTMLInputElement;
+  const form = input.closest('form')!;
+  const onSubmit = vi.fn((event: Event) => event.preventDefault());
+  form.addEventListener('submit', onSubmit);
+  expect(input.hasAttribute('minlength')).toBe(false);
+  expect(input.getAttribute('autocomplete')).toBe('current-password');
+  expect(input.getAttribute('type')).toBe('password');
+  await user.type(input, '7');
+  expect(input.validity.valid).toBe(true);
+  await user.tab();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Show password' }));
+  await user.keyboard(' ');
+  expect(input.type).toBe('text');
+  expect(input.value).toBe('7');
+  expect(screen.getByRole('button', { name: 'Hide password' }).getAttribute('aria-pressed')).toBe('true');
+  expect(new FormData(form).get('password')).toBe('7');
+  await user.click(screen.getByRole('button', { name: 'Hide password' }));
+  expect(input.type).toBe('password');
+  expect(input.value).toBe('7');
+  expect(screen.getByRole('button', { name: 'Show password' }).getAttribute('aria-pressed')).toBe('false');
+  expect(onSubmit).not.toHaveBeenCalled();
+  await user.click(screen.getByRole('button', { name: 'Open blocked-call form' }));
+  expect(onSubmit).toHaveBeenCalledOnce();
 });
 
 it('hides the form when driver access is disabled', async () => {

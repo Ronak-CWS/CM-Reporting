@@ -2,6 +2,10 @@
 
 Drivers use `https://automation.collectivewaste.ca/cm-reporting/blocked-call`. The page redirects to `/cm-reporting/blocked-call/login`, where one shared password opens the form. Microsoft accounts and driver names are not required for this flow. Submissions are labeled **Driver** by the server. The form removes names remembered by an earlier version and does not collect or save a personal name.
 
+The eye button beside the password shows or hides the entered text. There is no minimum driver-password length; a blank configured password disables driver access.
+
+For community searches, `fortmac` or `fort mac` finds **Fort McMurray**, which includes Gregoire Lake Estates and Draper. Their address and street choices include the original locality in parentheses to distinguish overlapping names and house numbers. Anzac, Conklin, Janvier, Fort McKay and Saprae Creek Estates remain separate choices. Saved reports and the source address catalogue retain their existing data.
+
 For **Oops! tag**, drivers may enter a reason or leave it blank. Any entered reason appears in the review and is saved with the tag reason in reports.
 
 ## Test locally
@@ -42,7 +46,7 @@ CM_DRIVER_LOGIN_PASSWORD="<replace-with-your-private-driver-password>"
 CM_GUEST_LOGIN_ENABLED=false
 ```
 
-Replace the placeholder with a private password of 12 to 128 characters. Keep the Microsoft tenant, client ID, client secret and public origin configured for office access. Keep one entry per variable. If NSSM sets these variables in its service environment, update those values there because they take precedence over the file. No password is included in source control or sent to the browser.
+Replace the placeholder with a non-empty private password of at most 128 characters. Keep the Microsoft tenant, client ID, client secret and public origin configured for office access. Keep one entry per variable. If NSSM sets these variables in its service environment, update those values there because they take precedence over the file. No password is included in source control or sent to the browser.
 
 The first installation requires deploying this updated code, building it, and restarting `CMReporting`; use the [reporting deployment procedure](reporting-update.md) once the code is available on the server. The Microsoft callback and IIS routing stay the same. After that initial deployment, changing only the driver password requires a service restart, without rebuilding:
 

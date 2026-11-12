@@ -51,7 +51,7 @@ The managed worker checks every 15 seconds. `next start` and `npm.cmd run dev` a
 
 ## PDF, Excel and photos
 
-The attached PDF uses a compact dated header and groups each call's details with its photos. Ordinary calls with two photos generally fit two per page. Longer notes and additional photos continue onto further pages without dropping content. Report details use saved data at preparation time; the automatic batch fixes its record IDs and recipients when queued. A retry keeps the original batch date, so different dates are never mixed.
+The attached PDF uses a compact dated header, with each call's details on the left and photographs on the right. Short calls with one photo generally fit four per US Letter page; longer details and additional photos use more space. Each complete record is measured before placement and moves to the next page as one block if needed. Exceptionally long records use one taller page at the same readable text size, so no record, photo, caption or note is split or dropped. Report details use saved data at preparation time; the automatic batch fixes its record IDs and recipients when queued. A retry keeps the original batch date, so different dates are never mixed.
 
 The Excel download contains a filterable **Summary** and **Details and photos** with embedded images. Click a reference in Summary to jump to that call's photos. Print areas, repeating headings and page breaks keep the printout compact. The PDF and Excel previews use the same daily selection and saved fields. Test and automatic emails currently attach the PDF; downloading Excel does not change the email format.
 

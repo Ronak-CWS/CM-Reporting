@@ -4,10 +4,10 @@ import path from 'node:path';
 import sharp from 'sharp';
 import { PDFDocument, PDFName, PDFDict, PDFRawStream } from 'pdf-lib';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { blockedCallAttachments, emailPhoto } from '../lib/report-attachment.js';
+import { blockedCallAttachments, dailyBlockedCallAttachments, emailPhoto } from '../lib/report-attachment.js';
 import { deliverQueuedEmails } from '../lib/email-outbox.js';
 import { privatePhotoPath } from '../lib/photo-path';
-import { createEmailFixture } from './helpers/email-fixture.mjs';
+import { cloneEmailFixtureReport, createEmailFixture } from './helpers/email-fixture.mjs';
 
 let fixture: Awaited<ReturnType<typeof createEmailFixture>> | undefined;
 afterEach(async () => {
@@ -19,14 +19,15 @@ async function prepare(options = {}) {
 }
 
 describe('blocked-call PDF attachment', () => {
-  it('embeds every saved photo, wraps long reports across pages, and preserves the originals', async () => {
+  it('keeps exceptionally long reports and all six photos together on one taller page and preserves originals', async () => {
     const { database, directory, id, originals, keys } = await prepare({ photoCount: 6, longDescription: true });
     const [attachment] = await blockedCallAttachments(database, directory, id);
     expect(attachment.filename).toBe('CM-DAY-20261110-TEST01-blocked-call.pdf');
     expect(attachment.content.length).toBeLessThan(5 * 1024 * 1024);
     const pdf = await PDFDocument.load(attachment.content);
-    expect(pdf.getPageCount()).toBeGreaterThan(1);
-    expect(pdf.getPageCount()).toBeLessThan(8);
+    expect(pdf.getPageCount()).toBe(1);
+    expect(pdf.getPage(0).getWidth()).toBe(612);
+    expect(pdf.getPage(0).getHeight()).toBeGreaterThan(792);
     let imageCount = 0;
     for (const page of pdf.getPages()) {
       const objects = page.node.Resources()?.lookup(PDFName.of('XObject'), PDFDict);
@@ -37,7 +38,28 @@ describe('blocked-call PDF attachment', () => {
     }
     expect(imageCount).toBe(6);
     for (let index = 0; index < keys.length; index++) expect(await readFile(privatePhotoPath(directory, keys[index]))).toEqual(originals[index]);
-  });
+  }, 60000);
+
+  it('fits four short one-photo records per Letter page and moves the fifth record with its photo', async () => {
+    const current = await prepare({ photoCount: 1 });
+    const { database, directory, id } = current;
+    database.prepare("UPDATE report_records SET site_address = '142 Cardinal Drive', registered_community = 'Fort McMurray', service_type = 'Recycling', issue_description = 'Pickup blocked. Reason: Bin not out.'").run();
+    database.prepare("UPDATE report_blockages SET reason_label = 'Bin not out', notes = '', vehicle_plates = ''").run();
+    const ids = [id];
+    for (let index = 1; index < 9; index++) ids.push(await cloneEmailFixtureReport(current, { reference_number: `CM-LAYOUT-${index + 1}` }));
+    const [attachment] = await dailyBlockedCallAttachments(database, directory, ids, '2026-11-10');
+    const pdf = await PDFDocument.load(attachment.content);
+    expect(pdf.getPageCount()).toBe(3);
+    const counts = pdf.getPages().map((page) => {
+      expect(page.getSize()).toEqual({ width: 612, height: 792 });
+      const objects = page.node.Resources()?.lookup(PDFName.of('XObject'), PDFDict);
+      return objects ? objects.entries().filter(([, ref]) => {
+        const object = pdf.context.lookup(ref);
+        return object instanceof PDFRawStream && object.dict.get(PDFName.of('Subtype'))?.toString() === '/Image';
+      }).length : 0;
+    });
+    expect(counts).toEqual([4, 4, 1]);
+  }, 60000);
 
   it('delivers a real PDF through the automatic outbox and marks acceptance only after the send', async () => {
     const { database, id } = await prepare();

@@ -281,5 +281,18 @@ it('saves driver reports and photos for office users, queues email, and returns 
   const stored = await runtime.storage.database.prepare('SELECT employee_name FROM report_records WHERE id = ?').bind(id).first();
   expect(stored).toEqual({ employee_name: 'Driver' });
   const queued = await runtime.storage.database.prepare('SELECT recipient, sent_at FROM report_email_outbox WHERE report_id = ?').bind(id).first();
-  expect(queued).toMatchObject({ recipient: 'office@example.invalid', sent_at: null });
+  expect(queued).toBeNull(); // Included in the daily digest instead of an individual email.
+});
+
+it('keeps email tests and photo report downloads unavailable to driver-only sessions', async () => {
+  const { cookie } = await login();
+  const { GET: emailSettings, POST: sendTest } = await import('../app/api/email/blocked-calls/route');
+  const { GET: dailyReport } = await import('../app/api/email/blocked-calls/report/route');
+  const { GET: individualReport } = await import('../app/api/records/[id]/report/route');
+  expect((await emailSettings(request('/api/email/blocked-calls', {}, cookie))).status).toBe(401);
+  expect((await sendTest(request('/api/email/blocked-calls', { method: 'POST', headers: { origin } }, cookie))).status).toBe(401);
+  for (const format of ['pdf', 'xlsx']) {
+    expect((await dailyReport(request(`/api/email/blocked-calls/report?format=${format}`, {}, cookie))).status).toBe(401);
+  }
+  expect((await individualReport(request('/api/records/id/report', {}, cookie), { params: Promise.resolve({ id: 'id' }) })).status).toBe(401);
 });

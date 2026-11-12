@@ -3,6 +3,7 @@ import { dataDirectory } from '../lib/storage-config.ts';
 import { reportEmailsEnabled, validateReportEmailConfig } from '../lib/smtp-config.js';
 import { deliverQueuedEmails, openEmailOutbox } from '../lib/email-outbox.js';
 import { safeEmailErrorCode } from '../lib/smtp.js';
+import { queueDailyBlockedCalls } from '../lib/daily-blocked-call-email.js';
 
 process.env.NODE_ENV ||= 'production';
 nextEnv.loadEnvConfig(process.cwd(), process.env.NODE_ENV !== 'production');
@@ -16,6 +17,7 @@ try {
   const database = openEmailOutbox(dataDirectory());
   try {
     do {
+      queueDailyBlockedCalls(database);
       const result = await deliverQueuedEmails(database, { limit: 20 });
       if (result.sent || result.deferred) console.log(`Report emails: ${result.sent} accepted by SMTP; ${result.deferred} scheduled for retry.`);
       if (process.argv.includes('--once') || stopping) break;

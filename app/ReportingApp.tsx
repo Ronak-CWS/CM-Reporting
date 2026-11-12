@@ -7,6 +7,7 @@ import type { SignedInUser } from '../lib/auth-store';
 import BlockedCallWizard from './components/BlockedCallWizard';
 import LocationAutocomplete from './components/LocationAutocomplete';
 import ReportPhotoPreview from './components/ReportPhotoPreview';
+import ReportEmailActions from './components/ReportEmailActions';
 import AppIcon, { type AppIconName } from './components/AppIcon';
 import DateFilter from './components/DateFilter';
 import MultiSelectFilter from './components/MultiSelectFilter';
@@ -592,13 +593,14 @@ function ExportsView({ notificationsEnabled }: { notificationsEnabled: boolean }
       <section className="panel delivery-panel">
         <div>
           <p className="eyebrow">Report notifications</p>
-          <h2>Email updates after submission</h2>
+          <h2>Email delivery</h2>
           <p>{notificationsEnabled
-            ? 'New blocked-call reports and complaints are queued for email to the reporting team. Download Excel exports above when needed.'
+            ? 'Blocked calls are emailed in a daily report. New complaints send individual notifications. Download Excel exports above when needed.'
             : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and Excel exports are available above.'}</p>
         </div>
         <span className="connection-badge">{notificationsEnabled ? 'Notifications enabled' : 'Notifications not enabled'}</span>
       </section>
+      <section className="panel"><ReportEmailActions /></section>
     </>
   );
 }
@@ -917,6 +919,8 @@ function RecordDetails({
               </div>
             </section>
           ) : null}
+
+          {record.blockage ? <a className="button button--secondary" href={appPath(`/api/records/${encodeURIComponent(record.id)}/report`)} target="_blank" rel="noreferrer">Download report PDF with photos</a> : null}
 
           <form className="resolution-form" onSubmit={handleUpdate}>
             <h3>Resolution and follow-up</h3>

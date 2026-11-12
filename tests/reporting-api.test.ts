@@ -83,8 +83,7 @@ describe('durable blocked call reports', () => {
     expect(record.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Flooded street', streetFrom: 'First Avenue' });
     expect(record.photos).toHaveLength(1);
     const queued = await database.prepare('SELECT * FROM report_email_outbox WHERE report_id = ?').bind(record.id).first();
-    expect(queued).toMatchObject({ recipient: 'office@example.invalid', sent_at: null, attempts: 0 });
-    expect(queued).toHaveProperty('body', expect.stringContaining(record.referenceNumber));
+    expect(queued).toBeNull(); // Blocked calls wait for the scheduled daily digest.
     // Reopen the on-disk database and folder, as after an application restart.
     runtime.storage!.close();
     runtime.storage = createLocalStorage(directory);
@@ -109,7 +108,7 @@ describe('durable blocked call reports', () => {
     const result = await updated.json() as { record: ReportRecord };
     expect(result.record.status).toBe('Resolved');
     expect(result.record.photos).toEqual(record.photos);
-    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(record.id).all()).results).toHaveLength(1);
+    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(record.id).all()).results).toHaveLength(0);
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=daily'))).text();
     expect(csv).toContain('"Photo Count"');
     expect(csv).toContain('"Street block","Flooded street","First Avenue","Third Avenue","","1","blocked-0.png"');
@@ -123,7 +122,7 @@ describe('durable blocked call reports', () => {
     const a = await first.json() as { record: ReportRecord };
     const b = await retry.json() as { record: ReportRecord };
     expect(a.record).toEqual(b.record);
-    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(id).all()).results).toHaveLength(1);
+    expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(id).all()).results).toHaveLength(0);
     expect(await photoFiles(id)).toHaveLength(1);
     expect((await POST(submission(id, { siteAddress: 'Test Avenue' }))).status).toBe(409);
   });

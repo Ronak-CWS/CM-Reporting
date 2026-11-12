@@ -7,7 +7,8 @@ import type { StorageDatabase } from './local-storage';
 import { reportDescription } from './report-description';
 
 export function reportEmailStatements(database: StorageDatabase, input: CreateReportRecordInput, id: string, reference: string, photoCount: number) {
-  if (!reportEmailsEnabled()) return [];
+  // Blocked calls are included in the scheduled one-day digest, not individual notifications.
+  if (!reportEmailsEnabled() || input.blockage) return [];
   const type = input.recordType === 'complaint' ? 'complaint' : 'blocked-call report';
   const text = [
     `A new ${type} has been submitted in CM Reporting.`, '',

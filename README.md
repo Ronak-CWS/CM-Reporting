@@ -32,7 +32,7 @@ Complaint customer names and contact information are optional; customer addresse
 
 ## Email notifications
 
-New blocked-call and complaint submissions can notify approved recipients through the company SMTP relay using mandatory STARTTLS on port 587. [Email setup](docs/email-notifications.md) covers credentials, recipient configuration, verification and retries. The initial recipients are `rtandon@collectivewaste.ca` and `jmarshall@collectivewaste.ca`. Enable `REPORT_EMAIL_ENABLED` only after installing the real SMTP password in the private environment. The example leaves that password blank; no live email has been sent or verified.
+Blocked calls can be emailed as a compact daily PDF with photos at 5:00 PM Edmonton time through `Smtp1.shivtek.ca:25` from `notifications@collectivewaste.ca`. Automatic delivery remains off. Under **Exports**, download today's PDF or Excel with embedded photos, and send a PDF test only to `rtandon@collectivewaste.ca`, choosing either approved sender in the dropdown. The photo-inclusive Excel has a filterable summary and a separate details/photo sheet. [Email setup](docs/email-notifications.md) covers CWS WEB01, relay permissions, configuration and retries. Complaint notifications retain their existing submission behavior when delivery is enabled.
 
 Notifications are committed with each report in a durable SQLite outbox, so SMTP outages do not lose submissions. The managed production start script runs the delivery worker and retries failures. Status edits do not send another submission email. Daily scheduled CSV delivery remains separate and is not enabled.
 

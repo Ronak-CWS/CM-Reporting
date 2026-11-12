@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { reportEmailRecipients, smtpConfig, validateReportEmailConfig } from '../lib/smtp-config.js';
+import { reportEmailRecipients, reportTestRecipients, smtpConfig, validateReportEmailConfig } from '../lib/smtp-config.js';
 
 const smtp = vi.hoisted(() => ({ sendMail: vi.fn(), verify: vi.fn(), close: vi.fn(), createTransport: vi.fn() }));
 vi.mock('nodemailer', () => ({ default: { createTransport: smtp.createTransport } }));
@@ -7,7 +7,7 @@ import { sendEmail, verifySmtp } from '../lib/smtp.js';
 
 beforeEach(() => {
   for (const [name, value] of Object.entries({ SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587', SMTP_SECURE: 'false',
-    SMTP_REQUIRE_TLS: 'true', SMTP_USER: 'sender@example.invalid', SMTP_PASS: 'test-password-never-a-real-secret',
+    SMTP_REQUIRE_TLS: 'true', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid', SMTP_PASS: 'test-password-never-a-real-secret',
     EMAIL_FROM: 'sender@example.invalid', REPORT_EMAIL_ENABLED: 'true', REPORT_EMAIL_TO: 'office@example.invalid' })) vi.stubEnv(name, value);
   smtp.createTransport.mockReturnValue({ sendMail: smtp.sendMail, verify: smtp.verify, close: smtp.close });
   smtp.sendMail.mockResolvedValue({ accepted: ['office@example.invalid'], rejected: [] });
@@ -18,6 +18,39 @@ afterEach(() => { vi.unstubAllEnvs(); });
 const message = { to: 'office@example.invalid', subject: 'New report', text: 'A report was saved.', messageId: '<test-report@example.invalid>' };
 
 describe('authenticated SMTP notifications', () => {
+  it('uses separate configured test recipients and sender without changing automatic emails', async () => {
+    vi.stubEnv('REPORT_EMAIL_TEST_TO', 'test-only@example.invalid');
+    vi.stubEnv('EMAIL_TEST_FROM_OPTIONS', 'test-sender@example.invalid,alternate@example.invalid');
+    expect(reportTestRecipients()).toEqual(['test-only@example.invalid']);
+    expect(reportEmailRecipients()).toEqual(['office@example.invalid']);
+    await sendEmail(message, { testFrom: 'test-sender@example.invalid' });
+    expect(smtp.sendMail).toHaveBeenLastCalledWith({ ...message, from: 'test-sender@example.invalid' });
+    await sendEmail(message);
+    expect(smtp.sendMail).toHaveBeenLastCalledWith({ ...message, from: 'sender@example.invalid' });
+    await expect(sendEmail(message, { testFrom: 'unapproved@example.invalid' })).rejects.toMatchObject({ code: 'ECONFIG' });
+    vi.stubEnv('REPORT_EMAIL_TEST_TO', '');
+    expect(reportTestRecipients).toThrow('REPORT_EMAIL_TEST_TO');
+  });
+  it('uses the approved no-login relay without transmitting stale credentials and attaches PDF bytes', async () => {
+    vi.stubEnv('SMTP_AUTH_MODE', 'none');
+    vi.stubEnv('SMTP_HOST', 'Smtp1.shivtek.ca');
+    vi.stubEnv('SMTP_PORT', '25');
+    const attachments = [{ filename: 'CM-DAY-TEST-blocked-call.pdf', content: Buffer.from('%PDF-test'), contentType: 'application/pdf' }];
+    await sendEmail({ ...message, attachments });
+    expect(smtp.createTransport.mock.calls[0][0]).toMatchObject({ host: 'Smtp1.shivtek.ca', port: 25, requireTLS: true });
+    expect(smtp.createTransport.mock.calls[0][0]).not.toHaveProperty('auth');
+    expect(smtp.sendMail).toHaveBeenCalledWith({ ...message, from: 'sender@example.invalid', attachments });
+    vi.stubEnv('SMTP_AUTH_MODE', 'invalid');
+    expect(smtpConfig).toThrow('SMTP_AUTH_MODE');
+  });
+
+  it('refuses unsafe or oversized report attachments before contacting SMTP', async () => {
+    const attachment = { filename: '../report.pdf', content: Buffer.from('pdf'), contentType: 'application/pdf' };
+    await expect(sendEmail({ ...message, attachments: [attachment] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
+    await expect(sendEmail({ ...message, attachments: [{ ...attachment, filename: 'report.pdf', content: Buffer.alloc(5 * 1024 * 1024 + 1) }] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
+    expect(smtp.createTransport).not.toHaveBeenCalled();
+  });
+
   it('requires STARTTLS with normal certificate checks on port 587 and uses the configured sender', async () => {
     await sendEmail(message);
     expect(smtp.createTransport).toHaveBeenCalledWith(expect.objectContaining({

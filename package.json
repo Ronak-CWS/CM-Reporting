@@ -20,13 +20,17 @@
     "db:generate": "drizzle-kit generate"
   },
   "dependencies": {
+    "@pdf-lib/fontkit": "1.1.1",
     "drizzle-orm": "0.45.2",
     "exceljs": "4.4.0",
+    "heic-decode": "2.1.0",
     "next": "16.3.8",
-    "nodemailer": "10.0.13",
+    "nodemailer": "10.5.0",
     "openid-client": "6.8.8",
+    "pdf-lib": "1.17.1",
     "react": "19.2.6",
-    "react-dom": "19.2.6"
+    "react-dom": "19.2.6",
+    "sharp": "0.35.5"
   },
   "devDependencies": {
     "@cloudflare/vite-plugin": "1.37.1",
@@ -55,6 +59,8 @@
   },
   "type": "module",
   "overrides": {
-    "exceljs": { "uuid": "11.1.1" }
+    "exceljs": {
+      "uuid": "11.1.1"
+    }
   }
 }

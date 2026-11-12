@@ -4,7 +4,12 @@ import path from 'node:path';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { deliverQueuedEmails, openEmailOutbox } from '../lib/email-outbox.js';
+import { deliverQueuedEmails as deliverWithAttachments, openEmailOutbox } from '../lib/email-outbox.js';
+
+// Queue/lease tests isolate attachment construction; integration tests exercise real PDFs.
+function deliverQueuedEmails(database: Parameters<typeof deliverWithAttachments>[0], options: Parameters<typeof deliverWithAttachments>[1] = {}) {
+  return deliverWithAttachments(database, { buildAttachments: async () => [], ...options });
+}
 
 let directory: string;
 let database: ReturnType<typeof openEmailOutbox>;
@@ -18,6 +23,16 @@ function queue(id = 'report-one') {
 }
 
 describe('durable report email delivery', () => {
+  it('keeps a report pending when its photo attachment cannot be prepared', async () => {
+    queue();
+    const send = vi.fn();
+    const buildAttachments = vi.fn().mockRejectedValue(Object.assign(new Error('private file path'), { code: 'EATTACHMENT' }));
+    expect(await deliverQueuedEmails(database, { send, buildAttachments, now: () => 1000 })).toEqual({ sent: 0, deferred: 1 });
+    expect(send).not.toHaveBeenCalled();
+    expect(database.prepare('SELECT sent_at, last_error_code FROM report_email_outbox').get())
+      .toEqual({ sent_at: null, last_error_code: 'EATTACHMENT' });
+  });
+
   it('retries after an outage, survives reopening, and does not resend a completed delivery', async () => {
     queue();
     const send = vi.fn().mockRejectedValueOnce(Object.assign(new Error('private provider response'), { code: 'EAUTH' })).mockResolvedValue(undefined);
@@ -75,7 +90,7 @@ describe('durable report email delivery', () => {
     const result = await promisify(execFile)(process.execPath, ['scripts/email-worker.mjs', '--once'], { env: {
       ...process.env, NODE_ENV: 'production', CM_DATA_DIR: directory, REPORT_EMAIL_ENABLED: 'true',
       REPORT_EMAIL_TO: 'office@example.invalid', SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587',
-      SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_USER: 'sender@example.invalid',
+      SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid',
       SMTP_PASS: 'unit-test-password-not-real', EMAIL_FROM: 'sender@example.invalid',
     } });
     expect(result.stdout).toBe('');

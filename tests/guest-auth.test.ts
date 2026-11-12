@@ -263,7 +263,7 @@ it('lets an authenticated guest submit, view, update and export a report with ph
   expect(workbook.headers.get('content-type')).toContain('spreadsheetml.sheet');
   expect((await workbook.arrayBuffer()).byteLength).toBeGreaterThan(1000);
   const queued = await runtime.storage.database.prepare('SELECT recipient, sent_at FROM report_email_outbox WHERE report_id = ?').bind(record.id).first();
-  expect(queued).toMatchObject({ recipient: 'office@example.invalid', sent_at: null });
+  expect(queued).toBeNull(); // Included in the daily digest instead of an individual email.
   expect((await logout(request('/api/auth/logout', { method: 'POST', headers: { origin } }, cookie))).headers.get('location')).toContain('loggedOut=1');
   expect((await getReports(request('/api/records', {}, cookie))).status).toBe(401);
   expect((await getPhoto(photoRequest, context)).status).toBe(401);

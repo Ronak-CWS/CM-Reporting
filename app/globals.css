@@ -1719,6 +1719,37 @@ h2 {
   border-bottom: 1px solid var(--slate-100);
 }
 
+.report-email-actions p {
+  font-size: 0.875rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.report-email-actions__buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.report-email-actions__sender {
+  display: grid;
+  gap: 7px;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.report-email-actions__sender select {
+  width: 100%;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid #c8d5d0;
+  border-radius: 8px;
+  background: white;
+  color: #243a32;
+  font: inherit;
+}
+
 .detail-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

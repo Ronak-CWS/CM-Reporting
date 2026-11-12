@@ -7,6 +7,7 @@ const nextConfig: NextConfig = {
   skipTrailingSlashRedirect: process.env.NODE_ENV === 'production',
   poweredByHeader: false,
   devIndicators: false,
+  serverExternalPackages: ['sharp', 'heic-decode', '@pdf-lib/fontkit'],
   experimental: { proxyClientMaxBodySize: '32mb' },
 };
 

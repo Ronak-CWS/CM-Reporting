@@ -25,7 +25,7 @@ import { GET as exportRecords } from '../app/api/export/route';
 
 const photoBytes = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64'));
 const baseReport = {
-  recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding',
+  recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'obstruction',
   registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Test Driver',
   streetFrom: 'First Avenue', streetTo: 'Third Avenue',
 };
@@ -80,7 +80,7 @@ describe('durable blocked call reports', () => {
     const response = await POST(submission());
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
-    expect(record.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Flooded street', streetFrom: 'First Avenue' });
+    expect(record.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Obstruction', streetFrom: 'First Avenue' });
     expect(record.photos).toHaveLength(1);
     const queued = await database.prepare('SELECT * FROM report_email_outbox WHERE report_id = ?').bind(record.id).first();
     expect(queued).toBeNull(); // Blocked calls wait for the scheduled daily digest.
@@ -111,7 +111,7 @@ describe('durable blocked call reports', () => {
     expect((await database.prepare('SELECT id FROM report_email_outbox WHERE report_id = ?').bind(record.id).all()).results).toHaveLength(0);
     const csv = await (await exportRecords(new Request('https://cm.test/api/export?type=daily'))).text();
     expect(csv).toContain('"Photo Count"');
-    expect(csv).toContain('"Street block","Flooded street","First Avenue","Third Avenue","","1","blocked-0.png"');
+    expect(csv).toContain('"Street block","Obstruction","First Avenue","Third Avenue","","1","blocked-0.png"');
     expect(csv).toContain(photo.url);
   });
 
@@ -130,7 +130,9 @@ describe('durable blocked call reports', () => {
   it('requires photos for both scopes and rejects other submission types and invalid reasons', async () => {
     const id = crypto.randomUUID();
     expect((await POST(submission(id, {}, false))).status).toBe(400);
-    expect((await POST(submission(id, { scope: 'pickup', reasonCode: 'blocked_by_car' }, false))).status).toBe(400);
+    const pickupWithoutPhoto = await POST(submission(id, { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'obstruction' }, false));
+    expect(pickupWithoutPhoto.status).toBe(400);
+    expect((await pickupWithoutPhoto.json()).error).toMatch(/photo/i);
     expect((await POST(submission(id, { category: 'Incident' }))).status).toBe(400);
     expect((await POST(submission(id, { reasonCode: 'blocked_by_car' }))).status).toBe(400);
     expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toBeNull();
@@ -157,12 +159,12 @@ describe('durable blocked call reports', () => {
     expect((await POST(submission(id, {}, true, 2))).status).toBe(201);
   });
 
-  it('rejects unlisted locations and incomplete plates before storing any photos', async () => {
+  it('rejects unlisted locations, removed reasons and invalid plates before storing any photos', async () => {
     for (const patch of [
       { registeredCommunity: 'Unlisted community' },
       { siteAddress: 'Unlisted street' },
       { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_vehicle' },
-      { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC123'] },
+      { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'obstruction', vehiclePlates: ['ABC123', 'abc-123'] },
       { reasonCode: 'other', otherReason: '  ' },
     ]) {
       const id = crypto.randomUUID();
@@ -173,7 +175,7 @@ describe('durable blocked call reports', () => {
   });
 
   it('reloads and exports all vehicle plates', async () => {
-    const response = await POST(submission(crypto.randomUUID(), { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC123', 'XYZ789', 'THIRD1'] }));
+    const response = await POST(submission(crypto.randomUUID(), { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'obstruction', vehiclePlates: ['ABC123', 'XYZ789', 'THIRD1'] }));
     expect(response.status).toBe(201);
     const { record } = await response.json() as { record: ReportRecord };
     const list = await (await GET(new Request('https://cm.test/api/records'))).json() as { records: ReportRecord[] };

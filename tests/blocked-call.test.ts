@@ -14,38 +14,48 @@ vi.mock('../lib/location-catalogue-store', async () => {
 const input = {
   recordType: 'daily', category: 'Blocked call', scope: 'pickup',
   registeredCommunity: 'Test community', siteAddress: '123 Test Street',
-  employeeName: 'Test Driver', reasonCode: 'blocked_by_vehicle', vehiclePlates: ['ABC-123'],
+  employeeName: 'Test Driver', reasonCode: 'obstruction', vehiclePlates: ['ABC-123'],
 };
 const photoBytes = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64'));
 
 describe('blocked call options and input', () => {
-  it('combines the four single vehicle reasons and retains their search aliases', () => {
-    expect(reasonsForScope('pickup').slice(0, -1)).toEqual(BLOCKED_CALL_REASON_OPTIONS);
-    for (const alias of ['car parked in front of bin', 'moving truck', 'delivery van', 'vehicle']) {
-      expect(searchBlockedReasons('pickup', alias)[0].code).toBe('blocked_by_vehicle');
+  it.each(['pickup', 'street'] as const)('offers only the four requested reasons for %s reports', (scope) => {
+    expect(reasonsForScope(scope)).toEqual(BLOCKED_CALL_REASON_OPTIONS);
+    expect(reasonsForScope(scope).map(reason => reason.label)).toEqual(['Bin spacing', 'Obstruction', 'Bin not out', 'OOPs']);
+    for (const reason of reasonsForScope(scope)) expect(reason.description).toMatch(/^Use this when /);
+    for (const alias of ['car', 'truck', 'van', 'fence', 'gate']) {
+      expect(searchBlockedReasons(scope, alias)[0].code).toBe('obstruction');
     }
-    expect(reasonsForScope('pickup').filter((reason) => ['blocked_by_car', 'blocked_by_truck', 'blocked_by_van'].includes(reason.code))).toHaveLength(0);
-    expect(searchBlockedReasons('street', 'crash')[0].code).toBe('accident');
-    expect(searchBlockedReasons('street', 'unknown reason').at(-1)?.code).toBe('other');
+    expect(searchBlockedReasons(scope, 'other')).toEqual([]);
+  });
+
+  it.each(['pickup', 'street'] as const)('accepts all four reasons without vehicle plates for %s reports', (scope) => {
+    for (const reason of reasonsForScope(scope)) {
+      const result = parseBlockedCallInput({ ...input, scope, siteAddress: scope === 'street' ? 'Test Street' : '123 Test Street', reasonCode: reason.code, vehiclePlates: [] });
+      expect(result.blockage).toMatchObject({ reasonCode: reason.code, reasonLabel: reason.label, vehiclePlates: '' });
+    }
   });
 
   it('creates only an open blocked call with the automatic Mountain timestamp', () => {
     const result = parseBlockedCallInput({ ...input, status: 'Resolved', priority: 'Urgent', occurredAt: '1900-01-01', vehiclePlates: ' ABC-123 ', streetFrom: 'Not a street report' }, new Date('2026-09-17T19:00:00Z'));
     expect(result).toMatchObject({ category: 'Blocked call', serviceType: 'Recycling', status: 'Open', priority: 'Normal', occurredAt: '2026-09-17T13:00:00-06:00', resolvedAt: '' });
-    expect(result.blockage).toMatchObject({ scope: 'pickup', vehiclePlates: 'ABC-123', streetFrom: '' });
+    expect(result.blockage).toMatchObject({ scope: 'pickup', reasonCode: 'obstruction', reasonLabel: 'Obstruction', vehiclePlates: 'ABC-123', streetFrom: '' });
   });
 
-  it('records street extent and ignores pickup-only plates', () => {
-    const result = parseBlockedCallInput({ ...input, scope: 'street', siteAddress: 'Test Street', reasonCode: 'flooding', streetFrom: 'First Ave', streetTo: 'Third Ave', vehiclePlates: 'Ignored' });
-    expect(result.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Flooded street', streetFrom: 'First Ave', streetTo: 'Third Ave', vehiclePlates: '' });
+  it('records street extent and discards plates for a reason unrelated to vehicles', () => {
+    const result = parseBlockedCallInput({ ...input, scope: 'street', siteAddress: 'Test Street', reasonCode: 'bins_not_out', streetFrom: 'First Ave', streetTo: 'Third Ave', vehiclePlates: 'Ignored' });
+    expect(result.blockage).toMatchObject({ scope: 'street', reasonLabel: 'Bin not out', streetFrom: 'First Ave', streetTo: 'Third Ave', vehiclePlates: '' });
     expect(result.issueDescription).toContain('from First Ave to Third Ave');
   });
 
   it.each([
     [{ category: 'Incident' }, 'limited to blocked calls'],
-    [{ scope: 'street' }, 'Choose a reason'],
+    [{ reasonCode: '' }, 'Choose a reason'],
     [{ scope: 'invalid' }, 'Choose a pickup'],
-    [{ reasonCode: 'other' }, 'Describe the other reason'],
+    [{ reasonCode: 'other', otherReason: 'Loose livestock' }, 'Choose a reason'],
+    [{ reasonCode: 'blocked_by_vehicle' }, 'Choose a reason'],
+    [{ reasonCode: 'blocked_by_multiple_vehicles' }, 'Choose a reason'],
+    [{ reasonCode: 'flooding' }, 'Choose a reason'],
     [{ siteAddress: ' ' }, 'Enter the pickup location'],
     [{ registeredCommunity: '' }, 'Enter the registered community'],
     [{ employeeName: '' }, 'Enter your name'],
@@ -54,44 +64,38 @@ describe('blocked call options and input', () => {
     expect(() => parseBlockedCallInput({ ...input, ...patch })).toThrow(message);
   });
 
-  it('saves a described other reason', () => {
-    expect(parseBlockedCallInput({ ...input, reasonCode: 'other', otherReason: ' Loose livestock ' }).blockage?.reasonLabel).toBe('Loose livestock');
-  });
-
   it.each([
-    [undefined, 'Oops! tag'],
-    ['   ', 'Oops! tag'],
-    [' Incorrect contents ', 'Oops! tag: Incorrect contents'],
-  ])('accepts an optional Oops! tag reason: %s', (oopsTagReason, reasonLabel) => {
+    [undefined, 'OOPs'],
+    ['   ', 'OOPs'],
+    [' Incorrect contents ', 'OOPs: Incorrect contents'],
+  ])('accepts optional OOPs tag details: %s', (oopsTagReason, reasonLabel) => {
     const report = parseBlockedCallInput({ ...input, reasonCode: 'oops_tag', oopsTagReason, vehiclePlates: [] });
     expect(report.blockage).toMatchObject({ reasonCode: 'oops_tag', reasonLabel, vehiclePlates: '' });
-    expect(report.issueDescription).toContain(`Reason: ${reasonLabel}.`);
+    expect(report.issueDescription).toContain('Reason: ' + reasonLabel + '.');
     expect(report.rootCause).toBe(reasonLabel);
   });
 
-  it('bounds Oops! tag details and ignores them for other reasons', () => {
+  it('bounds OOPs tag details and ignores stale details for other categories', () => {
     expect(() => parseBlockedCallInput({ ...input, reasonCode: 'oops_tag', oopsTagReason: 'x'.repeat(501) })).toThrow('too long');
-    expect(parseBlockedCallInput({ ...input, oopsTagReason: 'Stale tag detail' }).blockage?.reasonLabel).toBe('Blocked by a vehicle');
+    expect(parseBlockedCallInput({ ...input, oopsTagReason: 'Stale tag detail', otherReason: 'Old reason text' }).blockage?.reasonLabel).toBe('Obstruction');
   });
 
   it.each([
-    [{ vehiclePlates: [] }, 'Enter the vehicle plate'],
-    [{ vehiclePlates: ['ABC-123', 'XYZ-789'] }, 'Enter one plate'],
-    [{ reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['ABC-123', ' '] }, 'at least two'],
-    [{ reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: ['abc-123', 'ABC 123'] }, 'different plate'],
+    [{ vehiclePlates: ['abc-123', 'ABC 123'] }, 'different plate'],
+    [{ vehiclePlates: ['ABC/123'] }, 'one plate per field'],
+    [{ vehiclePlates: ['A'.repeat(33)] }, 'one plate per field'],
+    [{ vehiclePlates: Array.from({ length: 20 }, (_, i) => 'A'.repeat(25) + i) }, 'too long'],
     [{ vehiclePlates: [123] }, 'valid vehicle plate list'],
     [{ siteAddress: 'An unlisted address' }, 'from the service address list'],
     [{ registeredCommunity: 'Second community' }, 'from the service address list'],
-    [{ reasonCode: 'other', otherReason: '   ' }, 'Describe the other reason'],
-  ])('enforces required details on the server: %j', (patch, message) => {
+  ])('validates supplied plates and approved locations on the server: %j', (patch, message) => {
     expect(() => parseBlockedCallInput({ ...input, ...patch })).toThrow(message);
   });
 
-  it('normalizes and saves separate plates for multiple vehicles, including additional plates', () => {
-    const report = parseBlockedCallInput({ ...input, reasonCode: 'blocked_by_multiple_vehicles', vehiclePlates: [' abc-123 ', 'XYZ 789', 'THIRD-1', ''] });
+  it('normalizes and saves plates for one or more vehicles under Obstruction', () => {
+    const report = parseBlockedCallInput({ ...input, vehiclePlates: [' abc-123 ', 'XYZ 789', 'THIRD-1', ''] });
     expect(report.blockage?.vehiclePlates).toBe('ABC-123, XYZ 789, THIRD-1');
     expect(report.issueDescription).toContain('ABC-123, XYZ 789, THIRD-1');
-    expect(parseBlockedCallInput({ ...input, reasonCode: 'blocked_by_car' }).blockage?.reasonCode).toBe('blocked_by_vehicle');
   });
 
   it('handles daylight and standard Mountain time', () => {

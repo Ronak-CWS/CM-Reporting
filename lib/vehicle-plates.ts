@@ -5,14 +5,8 @@ export function normalizedVehiclePlates(plates: string[]) {
 }
 
 export function vehiclePlateError(reason: BlockedReason, values: string[]) {
-  if (!reason.requiresVehiclePlate) return '';
+  if (!reason.allowsVehiclePlates) return '';
   const plates = normalizedVehiclePlates(values);
-  const minimum = reason.allowsMultipleVehiclePlates ? 2 : 1;
-  if (plates.length < minimum) return minimum === 2
-    ? 'Enter at least two different vehicle plates.' : 'Enter the vehicle plate.';
-  if (!reason.allowsMultipleVehiclePlates && plates.length !== 1) {
-    return 'Enter one plate, or choose “Blocked by multiple vehicles”.';
-  }
   if (plates.some((plate) => plate.length > 32 || !/^[A-Z0-9][A-Z0-9 -]*$/.test(plate))) {
     return 'Enter one plate per field using letters, numbers, spaces or hyphens.';
   }

@@ -4,7 +4,7 @@ import Image from 'next/image';
 import { appPath } from '../../lib/app-path.js';
 import { reportingFetch, SESSION_RESTORED_EVENT } from '../../lib/reporting-fetch';
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { BLOCKED_CALL_SERVICE, blockageScopeLabel, findBlockedReason, searchBlockedReasons } from '../../lib/blocked-call-options';
+import { BLOCKED_CALL_SERVICE, blockageScopeLabel, findBlockedReason, reasonsForScope } from '../../lib/blocked-call-options';
 import { MAX_PHOTOS, PHOTO_ACCEPT, photoSelectionError } from '../../lib/photo-validation';
 import type { BlockageScope, ReportRecord } from '../../lib/report-types';
 import ReportPhotoPreview from './ReportPhotoPreview';
@@ -33,10 +33,7 @@ export default function BlockedCallWizard({
   const [streetFrom, setStreetFrom] = useState('');
   const [streetTo, setStreetTo] = useState('');
   const [reasonCode, setReasonCode] = useState('');
-  const [otherReason, setOtherReason] = useState('');
   const [oopsTagReason, setOopsTagReason] = useState('');
-  const [reasonQuery, setReasonQuery] = useState('');
-  const [showAllReasons, setShowAllReasons] = useState(false);
   const [vehiclePlates, setVehiclePlates] = useState<string[]>(['']);
   const [photos, setPhotos] = useState<LocalPhoto[]>([]);
   const [employeeName, setEmployeeName] = useState(reporterName);
@@ -54,10 +51,8 @@ export default function BlockedCallWizard({
   const cameraRef = useRef<PhotoCaptureHandle>(null);
   const isStreet = scope === 'street';
   const reason = scope ? findBlockedReason(scope, reasonCode) : undefined;
-  const reasonLabel = reasonCode === 'other' ? otherReason.trim()
-    : [reason?.label, reasonCode === 'oops_tag' ? oopsTagReason.trim() : ''].filter(Boolean).join(': ');
-  const matches = scope ? searchBlockedReasons(scope, reasonQuery) : [];
-  const shownReasons = reasonQuery || showAllReasons ? matches : matches.slice(0, 6);
+  const reasonLabel = [reason?.label, reasonCode === 'oops_tag' ? oopsTagReason.trim() : ''].filter(Boolean).join(': ');
+  const shownReasons = scope ? reasonsForScope(scope) : [];
   const hasDraft = Boolean(scope || location || community || photos.length);
 
   useEffect(() => {
@@ -113,7 +108,7 @@ export default function BlockedCallWizard({
 
   function chooseScope(nextScope: BlockageScope) {
     if (scope !== nextScope) {
-      setReasonCode(''); setOtherReason(''); setReasonQuery(''); setShowAllReasons(false);
+      setReasonCode('');
       setOopsTagReason('');
       setVehiclePlates(['']); setLocation(''); setStreetFrom(''); setStreetTo('');
       setLocationSelected(false);
@@ -154,7 +149,6 @@ export default function BlockedCallWizard({
     if (index === 1 && !communitySelected) return 'Choose a community from the list.';
     if (index === 1 && !locationSelected) return isStreet ? 'Choose a street from the list.' : 'Choose a pickup address from the list.';
     if (index === 2 && !reason) return 'Choose a reason.';
-    if (index === 2 && reasonCode === 'other' && !otherReason.trim()) return 'Describe what is blocking access.';
     if (index === 2 && reason) return vehiclePlateError(reason, vehiclePlates);
     if (index === 3) return photoSelectionError(photos.map((photo) => photo.file));
     return '';
@@ -169,9 +163,9 @@ export default function BlockedCallWizard({
     const payload = {
       recordType: 'daily', category: 'Blocked call', scope,
       registeredCommunity: community.trim(), siteAddress: location.trim(),
-      reasonCode, otherReason: otherReason.trim(), streetFrom: streetFrom.trim(), streetTo: streetTo.trim(),
+      reasonCode, streetFrom: streetFrom.trim(), streetTo: streetTo.trim(),
       oopsTagReason: reasonCode === 'oops_tag' ? oopsTagReason.trim() : '',
-      vehiclePlates: reason?.requiresVehiclePlate ? normalizedVehiclePlates(vehiclePlates) : [], notes: notes.trim(),
+      vehiclePlates: reason?.allowsVehiclePlates ? normalizedVehiclePlates(vehiclePlates) : [], notes: notes.trim(),
       ...(!driverMode ? { employeeName: employeeName.trim() } : {}),
       routeNumber: routeNumber.trim(), serviceType: BLOCKED_CALL_SERVICE,
     };
@@ -203,7 +197,7 @@ export default function BlockedCallWizard({
 
   function startAnother() {
     setScope(null); setLocation(''); setStreetFrom(''); setStreetTo(''); setReasonCode('');
-    setOtherReason(''); setReasonQuery(''); setShowAllReasons(false); setVehiclePlates(['']);
+    setVehiclePlates(['']);
     setOopsTagReason('');
     setNotes(''); setPhotos([]); setError(''); setSavedRecord(null); setConfirmExit(false);
     submissionRef.current = null;
@@ -321,29 +315,26 @@ export default function BlockedCallWizard({
                     <div className="driver-field-stack">
                       {reason ? (
                         <>
-                          <div className="driver-selected-reason"><span aria-hidden="true">✓</span><strong>{reason.label}</strong><button className="text-button" type="button" onClick={() => setReasonCode('')}>Change</button></div>
-                          {reasonCode === 'other' ? <label htmlFor="other-blocked-reason">What is blocking access? (required)<textarea id="other-blocked-reason" value={otherReason} onChange={(event) => setOtherReason(event.target.value)} rows={3} maxLength={500} required /></label> : null}
-                          {reasonCode === 'oops_tag' ? <label htmlFor="oops-tag-reason">Reason for Oops! tag (optional)<textarea id="oops-tag-reason" value={oopsTagReason} onChange={(event) => setOopsTagReason(event.target.value)} rows={3} maxLength={500} /></label> : null}
-                          {reason.requiresVehiclePlate ? <div className="driver-field-stack">
-                            <p className="driver-field-hint">{reason.allowsMultipleVehiclePlates ? 'Enter at least two different plates, one per vehicle.' : 'Enter the plate of the vehicle blocking access.'}</p>
+                          <div className="driver-selected-reason"><span aria-hidden="true">✓</span><span className="driver-reason-copy"><strong>{reason.label}</strong><small>{reason.description}</small></span><button className="text-button" type="button" onClick={() => setReasonCode('')}>Change</button></div>
+                          {reasonCode === 'oops_tag' ? <label htmlFor="oops-tag-reason">OOPs tag details (optional)<textarea id="oops-tag-reason" value={oopsTagReason} onChange={(event) => setOopsTagReason(event.target.value)} rows={3} maxLength={500} /></label> : null}
+                          {reason.allowsVehiclePlates ? <div className="driver-field-stack">
+                            <p className="driver-field-hint">If vehicles are blocking access, add their plates below, one per vehicle. Leave blank for fences, gates, or other obstacles.</p>
                             <div className="driver-plate-grid">
                               {vehiclePlates.map((plate, index) => <div className="driver-plate-field" key={index}>
-                                <label htmlFor={`vehicle-plate-${index}`}>Vehicle plate {index + 1}{index < (reason.allowsMultipleVehiclePlates ? 2 : 1) ? ' (required)' : ' (optional)'}
-                                  <input id={`vehicle-plate-${index}`} value={plate} onChange={(event) => setVehiclePlates((current) => current.map((value, position) => position === index ? event.target.value : value))} placeholder="e.g., ABC 123" maxLength={32} autoCapitalize="characters" autoComplete="off" spellCheck={false} required={index < (reason.allowsMultipleVehiclePlates ? 2 : 1)} />
+                                <label htmlFor={`vehicle-plate-${index}`}>Vehicle plate {index + 1} (optional)
+                                  <input id={`vehicle-plate-${index}`} value={plate} onChange={(event) => setVehiclePlates((current) => current.map((value, position) => position === index ? event.target.value : value))} placeholder="e.g., ABC 123" maxLength={32} autoCapitalize="characters" autoComplete="off" spellCheck={false} />
                                 </label>
-                                {index > 1 ? <button className="text-button" type="button" aria-label={`Remove plate ${index + 1}`} onClick={() => setVehiclePlates((current) => current.filter((_, position) => position !== index))}>Remove</button> : null}
+                                {index > 0 ? <button className="text-button" type="button" aria-label={`Remove plate ${index + 1}`} onClick={() => setVehiclePlates((current) => current.filter((_, position) => position !== index))}>Remove</button> : null}
                               </div>)}
                             </div>
-                            {reason.allowsMultipleVehiclePlates ? <button className="text-button" type="button" onClick={() => setVehiclePlates((current) => [...current, ''])}>+ Add another plate</button> : null}
+                            <button className="text-button" type="button" onClick={() => setVehiclePlates((current) => [...current, ''])}>+ Add another plate</button>
                           </div> : null}
                         </>
                       ) : (
                         <>
-                          <label htmlFor="driver-reason-search" className="driver-search-label"><span className="sr-only">Find a reason</span><input id="driver-reason-search" type="search" value={reasonQuery} onChange={(event) => setReasonQuery(event.target.value)} placeholder="Find a reason…" /></label>
                           <div className="driver-reason-list" role="group" aria-label="Blockage reasons">
-                            {shownReasons.map((option) => <button key={option.code} className="driver-reason-button" type="button" onClick={() => { setReasonCode(option.code); setVehiclePlates(option.allowsMultipleVehiclePlates ? [vehiclePlates[0] || '', vehiclePlates[1] || '', ...vehiclePlates.slice(2)] : [vehiclePlates[0] || '']); setError(''); }}><span>{option.label}</span><span aria-hidden="true">→</span></button>)}
+                            {shownReasons.map((option) => <button key={option.code} className="driver-reason-button" type="button" aria-labelledby={`reason-${option.code}-label`} aria-describedby={`reason-${option.code}-description`} onClick={() => { setReasonCode(option.code); setError(''); }}><span className="driver-reason-copy"><strong id={`reason-${option.code}-label`}>{option.label}</strong><small id={`reason-${option.code}-description`}>{option.description}</small></span><span aria-hidden="true">→</span></button>)}
                           </div>
-                          {!reasonQuery && !showAllReasons && matches.length > 6 ? <button className="text-button driver-more-reasons" type="button" onClick={() => setShowAllReasons(true)}>Show all reasons ({matches.length})</button> : null}
                         </>
                       )}
                     </div>
@@ -376,7 +367,7 @@ export default function BlockedCallWizard({
                       <dl className="driver-review">
                         <div><dt>Blockage type</dt><dd>{scope && blockageScopeLabel(scope)}</dd><button className="text-button" type="button" onClick={() => goTo(0)} aria-label="Edit blockage type">Edit</button></div>
                         <div><dt>Location</dt><dd><strong>{location}</strong><span>{community}</span>{isStreet && (streetFrom || streetTo) ? <small>{[streetFrom && `From ${streetFrom}`, streetTo && `to ${streetTo}`].filter(Boolean).join(' ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(1)} aria-label="Edit location">Edit</button></div>
-                        <div><dt>Reason</dt><dd>{reasonLabel}{reason?.requiresVehiclePlate ? <small>Plates: {normalizedVehiclePlates(vehiclePlates).join(', ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(2)} aria-label="Edit reason">Edit</button></div>
+                        <div><dt>Reason</dt><dd>{reasonLabel}{reason?.allowsVehiclePlates && normalizedVehiclePlates(vehiclePlates).length ? <small>Plates: {normalizedVehiclePlates(vehiclePlates).join(', ')}</small> : null}</dd><button className="text-button" type="button" onClick={() => goTo(2)} aria-label="Edit reason">Edit</button></div>
                         <div><dt>Photos</dt><dd>{photos.length} attached</dd><button className="text-button" type="button" onClick={() => goTo(3)} aria-label="Edit photos">Edit</button></div>
                       </dl>
                       {!driverMode ? <label htmlFor="driver-name">Your name<input id="driver-name" value={employeeName} readOnly aria-describedby="driver-name-hint" /><small id="driver-name-hint">From your signed-in account.</small></label> : null}

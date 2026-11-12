@@ -65,7 +65,7 @@ const photoBytes = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAA
 function reportForm(id = randomUUID(), changes = {}, includePhoto = true) {
   const form = new FormData();
   form.set('report', JSON.stringify({
-    recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding',
+    recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'obstruction',
     registeredCommunity: 'Test community', siteAddress: 'Test Street', serviceType: 'Waste',
     ...changes,
   }));

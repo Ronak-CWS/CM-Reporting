@@ -60,7 +60,7 @@ it('signs out from the final step only after confirming discard', async () => {
   await user.type(screen.getByLabelText('Street name'), 'Test Street');
   await user.click(await screen.findByRole('option', { name: 'Test Street' }));
   await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await user.click(screen.getByRole('button', { name: /Flooded street/ }));
+  await user.click(screen.getByRole('button', { name: 'Obstruction' }));
   await user.click(screen.getByRole('button', { name: /Continue/ }));
   await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'street.jpg', { type: 'image/jpeg' }));
   await user.click(screen.getByRole('button', { name: /Continue/ }));

@@ -101,7 +101,7 @@ it('keeps Microsoft report attribution and the shared company register', async (
   const cookie = `${SESSION_COOKIE}=${createSession(employee, microsoftConfig().policy)}`;
   const photo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64');
   const form = new FormData();
-  form.set('report', JSON.stringify({ recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding', registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Someone else', serviceType: 'Waste' }));
+  form.set('report', JSON.stringify({ recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'obstruction', registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Someone else', serviceType: 'Waste' }));
   form.set('submissionId', randomUUID());
   form.append('photos', new File([photo], 'blockage.png', { type: 'image/png' }));
   const response = await submitReport(request('/api/records', { method: 'POST', headers: { origin }, body: form }, cookie));

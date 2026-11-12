@@ -58,7 +58,7 @@ describe('approved location catalogue', () => {
     const response = await GET(new Request('https://cm.test/api/locations?kind=community'));
     expect(response.status).toBe(503);
     expect(response.headers.get('Cache-Control')).toBe('private, no-store');
-    expect(() => parseBlockedCallInput({ recordType: 'daily', scope: 'pickup', reasonCode: 'other', otherReason: 'Livestock', registeredCommunity: 'Test community', siteAddress: '123 Test Street', employeeName: 'Driver' })).toThrow('service address list is not available');
+    expect(() => parseBlockedCallInput({ recordType: 'daily', scope: 'pickup', reasonCode: 'obstruction', registeredCommunity: 'Test community', siteAddress: '123 Test Street', employeeName: 'Driver' })).toThrow('service address list is not available');
     expect((await GET(new Request('https://cm.test/api/locations?kind=invalid'))).status).toBe(400);
   });
 });

@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import BlockedCallWizard from '../app/components/BlockedCallWizard';
 import { createLocationCatalogue } from '../lib/location-catalogue';
@@ -35,13 +35,33 @@ async function reachPhotos(scope: 'pickup' | 'street' = 'pickup') {
   await user.type(screen.getByLabelText(scope === 'pickup' ? 'Pickup address or site' : 'Street name'), address);
   await user.click(await screen.findByRole('option', { name: address }));
   await user.click(screen.getByRole('button', { name: /Continue/ }));
-  await user.click(screen.getByRole('button', { name: scope === 'pickup' ? /Blocked by a vehicle/ : /Flooded street/ }));
-  if (scope === 'pickup') await user.type(screen.getByLabelText('Vehicle plate 1 (required)'), 'ABC123');
+  await user.click(screen.getByRole('button', { name: scope === 'pickup' ? 'Obstruction' : 'Bin not out' }));
+  if (scope === 'pickup') await user.type(screen.getByLabelText('Vehicle plate 1 (optional)'), 'ABC123');
   await user.click(screen.getByRole('button', { name: /Continue/ }));
   return user;
 }
 
 describe('simple driver flow', () => {
+  it.each(['pickup', 'street'] as const)('shows exactly four explained reasons for %s reports with no Other option', async (scope) => {
+    render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} />);
+    const user = await reachPhotos(scope);
+    await user.click(screen.getByRole('button', { name: /Back/ }));
+    await user.click(screen.getByRole('button', { name: 'Change' }));
+    const choices = within(screen.getByRole('group', { name: 'Blockage reasons' })).getAllByRole('button');
+    expect(choices.map(button => button.querySelector('strong')?.textContent)).toEqual(['Bin spacing', 'Obstruction', 'Bin not out', 'OOPs']);
+    for (const choice of choices) {
+      const description = document.getElementById(choice.getAttribute('aria-describedby')!);
+      expect(description?.textContent).toMatch(/^Use this when /);
+    }
+    expect(screen.queryByRole('button', { name: /Other reason|Show all reasons/ })).toBeNull();
+    expect(screen.queryByLabelText('Find a reason')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Obstruction' }));
+    expect(screen.getByText(/vehicle, fence, locked gate, snowbank/)).toBeTruthy();
+    await user.clear(screen.getByLabelText('Vehicle plate 1 (optional)'));
+    await user.click(screen.getByRole('button', { name: /Continue/ }));
+    expect(screen.getByRole('heading', { name: 'Add a photo' })).toBeTruthy();
+  });
+
   it.each(['pickup', 'street'] as const)('fills the community and %s location after an address search', async (scope) => {
     render(<BlockedCallWizard reporterName="" driverMode onClose={vi.fn()} />);
     const user = userEvent.setup();
@@ -92,16 +112,16 @@ describe('simple driver flow', () => {
     const user = await reachPhotos();
     await user.click(screen.getByRole('button', { name: /Back/ }));
     await user.click(screen.getByRole('button', { name: 'Change' }));
-    await user.click(screen.getByRole('button', { name: 'Oops! tag' }));
-    expect(screen.getByLabelText('Reason for Oops! tag (optional)')).toHaveProperty('required', false);
+    await user.click(screen.getByRole('button', { name: 'OOPs' }));
+    expect(screen.getByLabelText('OOPs tag details (optional)')).toHaveProperty('required', false);
     await user.click(screen.getByRole('button', { name: /Continue/ }));
     expect(screen.getByRole('heading', { name: 'Add a photo' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /Back/ }));
-    await user.type(screen.getByLabelText('Reason for Oops! tag (optional)'), 'Incorrect contents');
+    await user.type(screen.getByLabelText('OOPs tag details (optional)'), 'Incorrect contents');
     await user.click(screen.getByRole('button', { name: /Continue/ }));
     await user.upload(screen.getByLabelText('Upload blockage photos'), new File(['test-image'], 'tag.jpg', { type: 'image/jpeg' }));
     await user.click(screen.getByRole('button', { name: /Continue/ }));
-    expect(screen.getByText('Oops! tag: Incorrect contents')).toBeTruthy();
+    expect(screen.getByText('OOPs: Incorrect contents')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Submit blocked call' }));
     expect(await screen.findByRole('heading', { name: "You're all set." })).toBeTruthy();
     const form = save.mock.calls[0][1].body as FormData;
@@ -186,11 +206,11 @@ describe('simple driver flow', () => {
     await user.click(await screen.findByRole('option', { name: 'Test Street' }));
     await user.click(screen.getByRole('button', { name: 'Return to review' }));
     expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: /Flooded street/ }));
+    await user.click(screen.getByRole('button', { name: 'Bin not out' }));
     await user.click(screen.getByRole('button', { name: 'Return to review' }));
     expect(screen.getByRole('heading', { name: 'Ready to submit?' })).toBeTruthy();
     expect(screen.getByText('1 attached')).toBeTruthy();
-    expect(screen.getByText('Flooded street')).toBeTruthy();
+    expect(screen.getByText('Bin not out')).toBeTruthy();
     expect(screen.queryByText('Plates: ABC123')).toBeNull();
   });
 
@@ -214,7 +234,7 @@ describe('simple driver flow', () => {
     const user = await reachPhotos();
     expect((screen.getByRole('button', { name: /Continue/ }) as HTMLButtonElement).disabled).toBe(true);
     await user.click(screen.getByRole('button', { name: /Back/ }));
-    expect(screen.getByText('Blocked by a vehicle')).toBeTruthy();
+    expect(screen.getByText('Obstruction')).toBeTruthy();
     await user.click(screen.getByRole('button', { name: /Back/ }));
     expect((screen.getByLabelText('Pickup address or site') as HTMLInputElement).value).toBe('123 Test Street');
     expect(screen.queryByLabelText('Status')).toBeNull();
@@ -252,7 +272,7 @@ describe('simple driver flow', () => {
     const retry = fetchMock.mock.calls[1][1].body as FormData;
     expect(first.get('submissionId')).toBe(retry.get('submissionId'));
     expect(retry.getAll('photos')).toHaveLength(1);
-    expect(JSON.parse(String(retry.get('report')))).toMatchObject({ category: 'Blocked call', scope: 'street', reasonCode: 'flooding' });
+    expect(JSON.parse(String(retry.get('report')))).toMatchObject({ category: 'Blocked call', scope: 'street', reasonCode: 'bins_not_out' });
     expect(screen.getByRole('heading', { name: "You're all set." })).toBeTruthy();
   });
 
@@ -286,15 +306,13 @@ describe('simple driver flow', () => {
     expect(screen.getByLabelText('Pickup address or site')).toHaveProperty('disabled', true);
   });
 
-  it('requires two different plates for multiple vehicles and keeps additional plates on review', async () => {
+  it('validates distinct optional obstruction plates and keeps additional plates on review', async () => {
     render(<BlockedCallWizard reporterName="Test Driver" onClose={vi.fn()} onSaved={vi.fn()} />);
     const user = await reachPhotos();
     await user.click(screen.getByRole('button', { name: /Back/ }));
-    await user.click(screen.getByRole('button', { name: 'Change' }));
-    await user.click(screen.getByRole('button', { name: /Blocked by multiple vehicles/ }));
-    const plate2 = screen.getByLabelText('Vehicle plate 2 (required)');
-    await user.click(screen.getByRole('button', { name: /Continue/ }));
-    expect(screen.getByRole('heading', { name: 'What is blocking access?' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: /Add another plate/ }));
+    const plate2 = screen.getByLabelText('Vehicle plate 2 (optional)');
+    expect(plate2).toHaveProperty('required', false);
     await user.type(plate2, 'abc-123');
     await user.click(screen.getByRole('button', { name: /Continue/ }));
     expect(screen.getByRole('alert').textContent).toContain('different plate');

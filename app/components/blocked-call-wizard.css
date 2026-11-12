@@ -98,9 +98,10 @@
 .driver-reason-button { display: flex; justify-content: space-between; align-items: center; gap: 12px; width: 100%; min-height: 52px; padding: 12px 16px; border: 1px solid #d4e2e4; border-radius: 12px; background: #f9fbfb; color: #244556; font-size: .9rem; text-align: left; cursor: pointer; }
 .driver-reason-button:hover { border-color: #168496; background: #eaf5f3; }
 .driver-reason-button > span:last-child { color: #13849a; }
-.driver-more-reasons { min-height: 44px; font-size: .85rem; padding: 4px; }
+.driver-reason-copy { display: grid; flex: 1; gap: 5px; min-width: 0; }
+.driver-reason-copy strong { font-size: .95rem; }
+.driver-reason-copy small { color: #526c78; font-size: .82rem; font-weight: 400; line-height: 1.5; }
 .driver-selected-reason { display: flex; align-items: center; gap: 12px; padding: 16px; border: 1px solid #acd5cf; border-radius: 13px; background: #ecf7f4; color: #145f55; }
-.driver-selected-reason > strong { flex: 1; font-size: .95rem; }
 .driver-selected-reason .text-button { min-height: 34px; }
 .driver-photo-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .driver-photo-actions > button { display: flex; align-items: center; justify-content: center; gap: 10px; }

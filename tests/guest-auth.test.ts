@@ -234,7 +234,7 @@ it('lets an authenticated guest submit, view, update and export a report with ph
   const photoBytes = Uint8Array.from(Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64'));
   const form = new FormData();
   form.set('report', JSON.stringify({
-    recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding',
+    recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'obstruction',
     registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Guest test driver',
     streetFrom: 'First Avenue', streetTo: 'Third Avenue',
   }));
@@ -276,7 +276,7 @@ it('saves the Microsoft session name instead of a submitted name and keeps repor
   const cookie = `${SESSION_COOKIE}=${createSession(user, microsoftConfig().policy)}`;
   const photo = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jH0sAAAAASUVORK5CYII=', 'base64');
   const form = new FormData();
-  form.set('report', JSON.stringify({ recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'flooding', registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Someone else', serviceType: 'Waste' }));
+  form.set('report', JSON.stringify({ recordType: 'daily', category: 'Blocked call', scope: 'street', reasonCode: 'obstruction', registeredCommunity: 'Test community', siteAddress: 'Test Street', employeeName: 'Someone else', serviceType: 'Waste' }));
   form.set('submissionId', randomUUID());
   form.append('photos', new File([photo], 'blockage.png', { type: 'image/png' }));
   const response = await submitReport(request('/api/records', { method: 'POST', headers: { origin }, body: form }, cookie));

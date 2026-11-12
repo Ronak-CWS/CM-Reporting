@@ -16,7 +16,21 @@ D:\CMReportingData\service-locations-audit.json
 
 Keep data outside the application, IIS web root and generated outputs. Grant Modify access only to the application service account and administrators/backup accounts that need it. Do not expose the photo or database folder as an IIS virtual directory. Preserve it through upgrades. SQLite WAL/SHM files are normal; never remove them while the application is running.
 
-Install Node 24.15 or later and copy the application. Transfer the generated private catalogue and audit separately; they are excluded from Git. SQLite tables are initialized on first use. No test reports are installed. Authentication uses a separate `auth.sqlite` database in the private data directory.
+Install Node 24.15 or later and clone the private repository into `C:\Apps\CMReporting\app`. The reviewed catalogue and audit are tracked under `data`, so they arrive with the checkout; no separate RDP transfer is needed.
+
+For the first installation, run these commands **on the server** to copy the catalogue into its private data folder. Use the same destination for `CM_DATA_DIR` in the environment file below; choose a different local drive if needed.
+
+```powershell
+Set-Location 'C:\Apps\CMReporting\app'
+$cmDataDirectory = 'D:\CMReportingData'
+New-Item -ItemType Directory -Path $cmDataDirectory -Force | Out-Null
+Copy-Item -LiteralPath '.\data\service-locations.json' -Destination $cmDataDirectory
+Copy-Item -LiteralPath '.\data\service-locations-audit.json' -Destination $cmDataDirectory
+```
+
+Later `git pull` operations update the checkout, not the installed copy in `CM_DATA_DIR`. When deploying a reviewed catalogue update, back up the current data, stop the CMReporting service, copy both updated catalogue files, and restart the service. Leave the reporting database and photos in place.
+
+Production environment files, live databases and photos remain outside Git. SQLite tables are initialized on first use. No test reports are installed. Authentication uses a separate `auth.sqlite` database in the private data directory.
 
 ## Microsoft sign-in and environment
 

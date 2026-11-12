@@ -74,6 +74,84 @@ def c9_community(value):
     return C9_COMMUNITY_NAMES.get(name, name)
 
 
+def catalogue_address(address, unit):
+    address, unit = clean(address), unit_text(unit)
+    if unit and not re.search(r'\bUnit\s+' + re.escape(unit) + r'\b', address, re.I):
+        return f'Unit {unit}, {address}'
+    return address
+
+
+def append_reviewed_addresses(baseline, master, meadow_lake):
+    """Add approved locations without removing older choices or reassigning towns."""
+    key = lambda row: (row['community'].casefold(), row['address'].casefold())
+    output = {key(row): row for row in baseline}
+    additions = []
+
+    def include(entry, source, record_id, alias=False):
+        assert all(entry.values()), ('Incomplete service address', entry)
+        identity = key(entry)
+        if identity not in output:
+            output[identity] = entry
+            additions.append({**entry, 'source': source, 'recordId': record_id, 'townAlias': alias})
+
+    for row in master:
+        if row['Status'] != 'Active':
+            continue
+        community = clean(row['Community'])
+        address = catalogue_address(row['Address'], row['Unit'])
+        if (community.casefold(), address.casefold()) in output:
+            continue
+        # All new master rows have a civic number followed by the street name.
+        # Fail for other layouts rather than inventing a street for street-block reports.
+        match = re.fullmatch(r'\d+[A-Za-z]*\s+(.+)', clean(row['Address']))
+        assert match, ('Review new street format', row['Record ID'], row['Address'])
+        entry = {'community': community, 'address': address, 'street': match[1]}
+        include(entry, 'Southern Alberta master', row['Record ID'])
+        if community == 'Crowsnest Pass':
+            # The newer master explicitly names these towns in Area. Apply it
+            # only to new addresses; never overwrite existing workbook town labels.
+            town = clean(row['Area'])
+            assert town in {'Blairmore', 'Coleman', 'Frank', 'Hillcrest'}, ('Review new Crowsnest town', row)
+            include({**entry, 'community': town}, 'Southern Alberta master', row['Record ID'], alias=True)
+
+    for row in meadow_lake:
+        assert row['community'] == 'Brooks' and row['status'] == 'Request Fulfilled', row
+        include({field: clean(row[field]) for field in ['community', 'address', 'street']},
+                'Meadow Lake supplied addresses', row['rpc'])
+    return sorted(output.values(), key=key), additions
+
+
+def verify_current_sources(paths, wb):
+    master = read_csv(paths['current_c9_master'])
+    assert Counter(row['Status'] for row in master) == {'Active': 17808, 'Rejected': 194}
+    assert len({row['Record ID'] for row in master}) == len(master)
+    # Independently compare address, unit, community, source ID and eligibility
+    # against the current workbook, including red rows that are NOT imported.
+    rows = dict(next(rows for name, rows in xlsx_rows(paths['current_c9_workbook']) if name == 'Addresses'))
+    headers = rows[5]
+    fields = ['Community', 'Area', 'Address', 'Unit', 'Record ID', 'Status']
+    columns = {label: column for column, label in headers.items()}
+    workbook_records = Counter(tuple(clean(values.get(columns[field])) for field in fields)
+                               for number, values in rows.items() if number > 5 and clean(values.get(columns['Record ID'])))
+    assert workbook_records == Counter(tuple(clean(row[field]) for field in fields) for row in master), 'Current C9 workbook and CSV differ.'
+
+    meadow = json.loads(paths['meadow_lake_addresses'].read_text(encoding='utf-8'))
+    receipt = json.loads(paths['meadow_lake_receipt'].read_text(encoding='utf-8'))
+    assert digest(paths['meadow_lake_addresses']) == receipt['files']['audit\\source_addresses.json']
+    assert len(meadow) == len({row['rpc'] for row in meadow}) == receipt['supplied_records'] == 57
+    assert Counter(row['street'] for row in meadow) == {'Meadow Lake Gate E': 17, 'Meadow Lake Close E': 40}
+    assert receipt['collection_assignment']['collect_unlocated_addresses'] is True
+    assert any(row['address'] == '37 Meadow Lake Gate E' for row in meadow)
+    assert not any(row['address'] == '35 Meadow Lake Gate E' for row in meadow)
+
+    current_wb = read_csv(paths['current_wood_buffalo_index'])
+    assert len(current_wb) == len({row['Record ID'] for row in current_wb}) == len(wb)
+    assert {(row['service_id'], clean(row['full_address']), clean(row['unit']), clean(row['locality']).casefold()) for row in wb} == {
+        (row['Record ID'], clean(row['Address']), clean(row['Unit']), clean(row['Community']).casefold()) for row in current_wb
+    }, 'Current Wood Buffalo release differs from the imported service records.'
+    return master, meadow
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--source-root', type=Path, required=True)
@@ -92,6 +170,11 @@ def main():
         'brooks_additions': root / 'outputs/2026-09-18_brooks_mobile_home_additions_source_386/Brooks_mobile_home_routing_additions.csv',
         'wood_buffalo_routes': wb_dir / 'max_3_trucks/optimized_routes.csv',
         'wood_buffalo_source': root / 'CM-Wood Buffalo/data/source/Customers.xlsx',
+        'current_c9_master': root / 'outputs/2026-11-04_brooks_greenbrook_tuesday/Consolidated_addresses.csv',
+        'current_c9_workbook': root / 'outputs/2026-11-04_brooks_greenbrook_tuesday/Southern_Alberta_Consolidated_Address_Master.xlsx',
+        'meadow_lake_addresses': root / 'outputs/2026-11-09_brooks_meadow_lake_addresses/audit/source_addresses.json',
+        'meadow_lake_receipt': root / 'outputs/2026-11-09_brooks_meadow_lake_addresses/audit/publication_receipt.json',
+        'current_wood_buffalo_index': root / 'outputs/2026-11-05_wood_buffalo_driver_maps_B3/Wood Buffalo - Address map index.csv',
     }
     before = {name: digest(path) for name, path in paths.items()}
     c9, wb = read_csv(paths['c9_routes']), read_csv(paths['wood_buffalo_routes'])
@@ -222,6 +305,9 @@ def main():
                 entries.append(entry)
     unique = { (row['community'].casefold(), row['address'].casefold()): row for row in entries }
     output = sorted(unique.values(), key=lambda row: (row['community'].casefold(), row['address'].casefold()))
+    baseline_addresses = len(output)
+    current_master, meadow_lake = verify_current_sources(paths, wb)
+    output, new_addresses = append_reviewed_addresses(output, current_master, meadow_lake)
     # Independently reconcile names from the original workbooks, including the
     # service-address add-ons and approved rural Wood Buffalo route localities.
     c9_expected = source_communities | set(addon_checks)
@@ -231,7 +317,8 @@ def main():
     actual_communities = {row['community'] for row in output}
     missing_communities = sorted(expected_communities - actual_communities)
     report = {
-        'sourceSnapshot': '2026-09-24',
+        'sourceSnapshot': '2026-11-09',
+        'baselineSourceSnapshot': '2026-09-24',
         'sources': {name: {'path': path.relative_to(root).as_posix(), 'sha256': before[name]} for name, path in paths.items()},
         'sourceRows': {'C9': len(c9), 'Wood Buffalo': len(wb)},
         'catalogueAddresses': len(output), 'communities': dict(sorted(Counter(row['community'] for row in output).items())),
@@ -249,16 +336,40 @@ def main():
         'serviceAddressOnlyAddons': addon_checks,
         'woodBuffaloCustomerSourceRows': len(customer_rows), 'woodBuffaloLinkedSourceRows': len(linked_customer_rows), 'woodBuffaloUnlinkedSourceRows': missing_customers,
         'brooksAdditionsIncluded': len(addition_ids), 'parklandUnitsIncluded': sorted(expected_units),
+        'addressRefresh': {
+            'mode': 'additions-only',
+            'baselineAddressesRetained': baseline_addresses,
+            'currentMasterRows': len(current_master),
+            'currentMasterActiveRows': sum(row['Status'] == 'Active' for row in current_master),
+            'currentMasterRejectedRowsNotImported': sum(row['Status'] == 'Rejected' for row in current_master),
+            'currentMasterMatchesWorkbook': True,
+            'woodBuffaloCurrentReleaseMatchesBaseline': True,
+            'meadowLakeSuppliedAddresses': len(meadow_lake),
+            'meadowLakeIncludesUnlocated37': True,
+            'newAddresses': sum(not row['townAlias'] for row in new_addresses),
+            'newTownAliases': sum(row['townAlias'] for row in new_addresses),
+            'newChoices': len(new_addresses),
+            'newChoicesByCommunity': dict(sorted(Counter(row['community'] for row in new_addresses).items())),
+            'additions': new_addresses,
+        },
         'collapsedIdenticalOptions': [{'community': unique[key]['community'], 'address': unique[key]['address'], 'services': values} for key, values in provenance.items() if len(values) > 1],
     }
     assert all(digest(path) == before[name] for name, path in paths.items()), 'A source changed during import.'
-    args.output.parent.mkdir(parents=True, exist_ok=True)
-    audit_path = args.output.with_name('service-locations-audit.json')
-    audit_path.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
-    print(json.dumps({'sourceRows': report['sourceRows'], 'catalogueAddresses': len(output), 'communities': len(report['communities']), 'c9UnreconciledCount': len(missing_source), 'c9UnreconciledSamples': missing_source[:5], 'woodBuffaloUnlinkedCount': len(missing_customers), 'brooksAdditionsIncluded': len(addition_ids), 'parklandUnitsIncluded': len(expected_units)}, indent=2))
     assert not missing_source, 'Reconcile C9 source differences before importing.'
     assert not missing_customers, 'Reconcile Wood Buffalo source lineages before importing.'
     assert not missing_communities, f'Source communities missing from catalogue: {missing_communities}'
+    assert len(output) == baseline_addresses + len(new_addresses)
+    output_by_key = {(row['community'].casefold(), row['address'].casefold()): row for row in output}
+    assert all(output_by_key.get(key) == row for key, row in unique.items()), 'An existing catalogue choice was removed or changed.'
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    audit_path = args.output.with_name('service-locations-audit.json')
+    audit_temp = audit_path.with_suffix('.json.tmp')
+    audit_temp.write_text(json.dumps(report, indent=2, ensure_ascii=False) + '\n', encoding='utf-8')
+    audit_temp.replace(audit_path)
+    print(json.dumps({'sourceRows': report['sourceRows'], 'catalogueAddresses': len(output), 'communities': len(report['communities']),
+                      'newAddresses': report['addressRefresh']['newAddresses'], 'newTownAliases': report['addressRefresh']['newTownAliases'],
+                      'newChoicesByCommunity': report['addressRefresh']['newChoicesByCommunity'],
+                      'c9UnreconciledCount': len(missing_source), 'woodBuffaloUnlinkedCount': len(missing_customers)}, indent=2))
     temporary = args.output.with_suffix('.json.tmp')
     temporary.write_text(json.dumps(output, ensure_ascii=False, separators=(',', ':')) + '\n', encoding='utf-8')
     temporary.replace(args.output)

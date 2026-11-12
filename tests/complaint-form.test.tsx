@@ -16,7 +16,7 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: string, init?: RequestInit) => {
     const url = new URL(input, 'https://cm.test');
     if (url.pathname.endsWith('/api/locations')) {
-      return Response.json(catalogue.search(url.searchParams.get('kind') as LocationKind, url.searchParams.get('q') || ''));
+      return Response.json(catalogue.search(url.searchParams.get('kind') as LocationKind, url.searchParams.get('q') || '', url.searchParams.get('community') || ''));
     }
     if (init?.method === 'POST') {
       const payload = JSON.parse(String(init.body));
@@ -52,6 +52,27 @@ async function selectCommunity(user: ReturnType<typeof userEvent.setup>) {
 }
 
 describe('complaint community selection', () => {
+  it('suggests addresses from the selected community and submits the chosen address', async () => {
+    const user = await openForm();
+    fillRequiredDetails();
+    await selectCommunity(user);
+    const address = screen.getByRole('combobox', { name: 'Address' });
+    await user.clear(address);
+    await user.type(address, '123');
+    await user.click(await screen.findByRole('option', { name: '123 Test Street' }));
+    await user.click(screen.getByRole('button', { name: 'Save complaint' }));
+    await waitFor(() => expect(submitted).toHaveLength(1));
+    expect(submitted[0]).toMatchObject({ registeredCommunity: 'Test community', customerAddress: '123 Test Street' });
+  });
+  it('clears a selected service address when its community changes', async () => {
+    const user = await openForm();
+    await selectCommunity(user);
+    const address = screen.getByRole('combobox', { name: 'Address' });
+    await user.type(address, '123');
+    await user.click(await screen.findByRole('option', { name: '123 Test Street' }));
+    await user.clear(screen.getByRole('combobox', { name: 'Registered community' }));
+    expect(address).toHaveProperty('value', '');
+  });
   it('requires choosing a suggestion and invalidates an edited selection', async () => {
     const user = await openForm();
     fillRequiredDetails();
@@ -60,7 +81,7 @@ describe('complaint community selection', () => {
     await screen.findByRole('option', { name: 'Test community' });
     await user.keyboard('{Escape}');
     expect(screen.getByRole('dialog', { name: 'Log an inquiry or complaint' })).toBeDefined();
-    expect(screen.queryByRole('listbox')).toBeNull();
+    expect(screen.queryByRole('listbox', { name: 'Registered community options' })).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Save complaint' }));
     expect(screen.getByRole('alert').textContent).toContain('Choose a registered community');
     expect(submitted).toHaveLength(0);

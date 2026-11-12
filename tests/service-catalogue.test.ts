@@ -6,8 +6,23 @@ import { createLocationCatalogue, type ServiceLocation } from '../lib/location-c
 // disappearing when source routing groups are imported into the reporting app.
 const rows: ServiceLocation[] = JSON.parse(readFileSync(new URL('../data/service-locations.json', import.meta.url), 'utf8'));
 const catalogue = createLocationCatalogue(rows);
+const audit = JSON.parse(readFileSync(new URL('../data/service-locations-audit.json', import.meta.url), 'utf8'));
 
 describe('shipped service community coverage', () => {
+  it('includes every reviewed November addition with its exact address, unit and street', () => {
+    expect(audit.addressRefresh).toMatchObject({ mode: 'additions-only', baselineAddressesRetained: 39676,
+      newAddresses: 112, newTownAliases: 13, newChoices: 125, meadowLakeSuppliedAddresses: 57 });
+    expect(rows).toHaveLength(39801);
+    for (const entry of audit.addressRefresh.additions as ServiceLocation[]) {
+      expect(catalogue.resolve('pickup', entry.community, entry.address)).toEqual({ registeredCommunity: entry.community, siteAddress: entry.address });
+      expect(catalogue.resolve('street', entry.community, entry.street)).toEqual({ registeredCommunity: entry.community, siteAddress: entry.street });
+    }
+    expect(catalogue.search('address', '37 Meadow Lake Gate E', 'Brooks').options).toEqual(['37 Meadow Lake Gate E']);
+    expect(catalogue.resolve('pickup', 'Brooks', '35 Meadow Lake Gate E')).toBeNull();
+    expect(catalogue.searchLocations('627 27 St Fort Macleod').options).toContainEqual({ community: 'Fort Macleod', address: '627 27 St', street: '27 St' });
+    expect(catalogue.resolve('pickup', 'Raymond', 'Unit 4, 133N 400 St W')).not.toBeNull();
+    expect(catalogue.resolve('pickup', 'Pincher Creek', 'Unit a, 1110 Tumbleweed Court')).not.toBeNull();
+  });
   it('includes every community in the reviewed C9 and Wood Buffalo sources and retains the existing group', () => {
     expect([...new Set(rows.map((row) => row.community))].sort()).toEqual([
       'Anzac', 'Beaver Mines', 'Bellevue', 'Blairmore', 'Brooks', 'Burdett',
@@ -87,7 +102,7 @@ describe('shipped service community coverage', () => {
     const groupRows = rows.filter((row) => row.community === 'Crowsnest Pass');
     const locations = (locations: ServiceLocation[]) => new Set(locations.map(({ address, street }) => JSON.stringify([address, street])));
     expect(locations(townRows)).toEqual(locations(groupRows));
-    expect(groupRows).toHaveLength(2409);
+    expect(groupRows).toHaveLength(2422);
     expect(catalogue.resolve('pickup', 'Blairmore', '8610 16 Ave')).toBeNull();
     expect(catalogue.resolve('pickup', 'Coleman', '13601 20 Ave')).toBeNull();
   });

@@ -638,6 +638,8 @@ function ComplaintFormModal({
   const [error, setError] = useState('');
   const [community, setCommunity] = useState('');
   const [communitySelected, setCommunitySelected] = useState(false);
+  const [customerAddress, setCustomerAddress] = useState('');
+  const [addressSelected, setAddressSelected] = useState(false);
   const [category, setCategory] = useState('');
   const [categoryOtherReason, setCategoryOtherReason] = useState('');
   const errorRef = useRef<HTMLDivElement>(null);
@@ -721,7 +723,10 @@ function ComplaintFormModal({
                 <div className="form-field">
                   <LocationAutocomplete id="registeredCommunity" label="Registered community" kind="community"
                     value={community} selected={communitySelected} showRequired disabled={saving} placeholder="Start typing a community"
-                    onChange={(value, selected) => { setCommunity(value); setCommunitySelected(selected); }} />
+                    onChange={(value, selected) => {
+                      if (value !== community && addressSelected) { setCustomerAddress(''); setAddressSelected(false); }
+                      setCommunity(value); setCommunitySelected(selected);
+                    }} />
                 </div>
                 <Field label="Contact medium" name="contactMedium" required><select id="contactMedium" name="contactMedium" defaultValue="" required><option value="" disabled>Choose contact method</option>{CONTACT_MEDIA.map((option) => <option key={option}>{option}</option>)}</select></Field>
                 <Field label="Priority" name="priority" required><select id="priority" name="priority" defaultValue="Normal" required>{['Low', 'Normal', 'High', 'Urgent'].map((option) => <option key={option}>{option}</option>)}</select></Field>
@@ -742,7 +747,13 @@ function ComplaintFormModal({
               <legend><span className="form-section-number" aria-hidden="true">3</span>Person making the inquiry or complaint</legend>
               <div className="form-grid">
                 <Field label="Customer name (optional)" name="customerName"><input id="customerName" name="customerName" type="text" /></Field>
-                <Field label="Address" name="customerAddress" required><input id="customerAddress" name="customerAddress" type="text" autoComplete="street-address" required /></Field>
+                <div className="form-field">
+                  <LocationAutocomplete id="customerAddress" name="customerAddress" label="Address" kind="address"
+                    community={communitySelected ? community : ''} value={customerAddress} selected={addressSelected}
+                    showRequired allowFreeText disabled={saving} placeholder="Search or enter the customer address"
+                    hint="Choose a service address or enter the full address if it is not listed."
+                    onChange={(value, selected) => { setCustomerAddress(value); setAddressSelected(selected); }} />
+                </div>
                 <Field label="Contact information" name="customerContactInformation" hint="Optional. Phone number, email address, or other preferred contact, if provided."><input id="customerContactInformation" name="customerContactInformation" type="text" /></Field>
                 <Field label="Assigned to" name="assignedTo"><input id="assignedTo" name="assignedTo" type="text" placeholder="Employee or team" /></Field>
               </div>

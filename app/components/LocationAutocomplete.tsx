@@ -9,6 +9,7 @@ type LocationOption = string | ServiceLocation;
 
 interface Props {
   id: string;
+  name?: string;
   label: string;
   kind: LocationKind | 'location';
   value: string;
@@ -19,18 +20,19 @@ interface Props {
   showRequired?: boolean;
   placeholder: string;
   hint?: string;
+  allowFreeText?: boolean;
   onChange: (value: string, selected: boolean) => void;
   onSelectLocation?: (location: ServiceLocation) => void;
 }
 
-export default function LocationAutocomplete({ id, label, kind, value, selected, community = '', scope = 'pickup', disabled = false, showRequired = false, placeholder, hint, onChange, onSelectLocation }: Props) {
+export default function LocationAutocomplete({ id, name, label, kind, value, selected, community = '', scope = 'pickup', disabled = false, showRequired = false, placeholder, hint, allowFreeText = false, onChange, onSelectLocation }: Props) {
   const [open, setOpen] = useState(false);
   const [result, setResult] = useState<{ search: string; options: LocationOption[]; hasMore: boolean; error: string } | null>(null);
   const [active, setActive] = useState(-1);
   const [retry, setRetry] = useState(0);
   const listRef = useRef<HTMLUListElement>(null);
   const search = new URLSearchParams({ kind, q: value, community, ...(kind === 'location' ? { scope } : {}) }).toString();
-  const canSearch = kind !== 'location' || !!value.trim();
+  const canSearch = (kind !== 'location' || !!value.trim()) && (!allowFreeText || kind !== 'address' || !!community);
   const current = result?.search === search ? result : null;
   const loading = open && !disabled && canSearch && !current;
   const options = current?.options || [];
@@ -68,7 +70,7 @@ export default function LocationAutocomplete({ id, label, kind, value, selected,
   }}>
     <label htmlFor={id}>{label}{showRequired ? <b aria-hidden="true"> *</b> : null}</label>
     <div className={`location-input${selected ? ' location-input--selected' : ''}`}>
-      <input id={id} role="combobox" aria-autocomplete="list" aria-expanded={open && !disabled} aria-controls={`${id}-options`}
+      <input id={id} name={name} role="combobox" aria-autocomplete="list" aria-expanded={open && !disabled} aria-controls={`${id}-options`}
         aria-activedescendant={open && activeIndex >= 0 ? `${id}-option-${activeIndex}` : undefined}
         aria-describedby={`${id}-hint`} autoComplete="off" spellCheck={false} maxLength={kind === 'community' ? 250 : 500}
         placeholder={placeholder} required={kind !== 'location'} disabled={disabled} value={value}
@@ -91,8 +93,8 @@ export default function LocationAutocomplete({ id, label, kind, value, selected,
             onMouseDown={(event) => event.preventDefault()} onClick={() => choose(option)}>{typeof option === 'string' ? option : <><strong className="location-option-address">{option.address}</strong><small className="location-option-community">{option.community}</small></>}</li>)}
         </ul>
         {loading ? <p role="status">Searching…</p> : current?.error ? <div className="location-search-error"><p role="alert">{current.error}</p><button className="text-button" type="button" onClick={() => { setResult(null); setRetry((value) => value + 1); }}>Try again</button></div>
-          : !canSearch ? <p role="status">Type an address to search all communities.</p>
-            : !options.length ? <p role="status">No matching {kind === 'community' ? 'communities' : kind === 'street' ? 'streets' : 'addresses'}. Check the spelling or contact the office.</p>
+          : !canSearch ? <p role="status">{allowFreeText ? 'Select a community for address suggestions, or enter the full address.' : 'Type an address to search all communities.'}</p>
+            : !options.length ? <p role="status">No matching {kind === 'community' ? 'communities' : kind === 'street' ? 'streets' : 'addresses'}. {allowFreeText ? 'You can enter the full address.' : 'Check the spelling or contact the office.'}</p>
             : current?.hasMore ? <p role="status">Keep typing to narrow the list.</p> : null}
       </div> : null}
     </div>

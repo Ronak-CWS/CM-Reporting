@@ -40,7 +40,7 @@ Failed submissions retain the draft and photos while the page stays open; this i
 
 ## Approved address catalogue
 
-The import reconciles the latest reviewed local snapshots as of **24 September 2026**:
+The import starts with the reviewed **24 September 2026** baseline:
 
 | Source | Service records | Coverage checked |
 | --- | ---: | --- |
@@ -48,16 +48,18 @@ The import reconciles the latest reviewed local snapshots as of **24 September 2
 | Wood Buffalo | 19,458 | All 19,273 Customers.xlsx source rows accounted for, plus approved rural services |
 | Combined | 37,414 | 39,676 community/address choices across 35 community options |
 
+The **9 November 2026** refresh adds **112 addresses** from the current Southern Alberta master and the supplied Meadow Lake list, plus **13 matching Crowsnest town choices**. The catalogue now has **39,801 choices** across the same 35 source communities. The additions include all 57 Meadow Lake addresses, including 37 Meadow Lake Gate E even though its map location is unconfirmed. Wood Buffalo's 5 November release reconciles to the existing 19,458 service records with no address additions. As requested, this is an additions-only update: older choices remain, and Rejected rows in the newer master cannot add addresses. Every addition and its source ID are recorded under `addressRefresh` in the audit.
+
 Identical choices within a community are collapsed; distinct units are retained. C9 matches the authoritative final workbook table rows, excluding leftover review cells outside the tables and the original Magrath `123 123` template row. Reviewed corrections and source hashes are recorded in the audit. No source workbooks or geocodes are changed.
 
-Blairmore, Coleman, Frank and Hillcrest use their original workbook community names and matching addresses. The existing Crowsnest Pass group remains available, so 2,409 address choices are also offered under the individual towns. Routing subareas do not override workbook community names. The importer checks every source community against the generated list, including Enchant/Hays service-address additions and Wood Buffalo rural localities; the only spelling normalization is Beaver Mine to Beaver Mines.
+Blairmore, Coleman, Frank and Hillcrest retain their original workbook community names and matching addresses. The existing Crowsnest Pass group remains available, with 2,422 choices also offered under the individual towns. New Crowsnest addresses use the town named in the current master's Area column; existing workbook town assignments are preserved. The importer checks every source community against the generated list, including Enchant/Hays service-address additions and Wood Buffalo rural localities; the only spelling normalization is Beaver Mine to Beaver Mines.
 
 Community searches group Gregoire Lake Estates and Draper under Fort McMurray; `fortmac` and `fort mac` find that choice. Their locations include the original locality in parentheses to distinguish overlapping addresses and streets. Anzac, Conklin, Janvier, Fort McKay and Saprae Creek Estates remain separate. This produces 33 selectable communities from the 35 source communities without changing the source catalogue or previously saved reports.
 
-Generated private files `data/service-locations.json` and `data/service-locations-audit.json` are present locally and ignored by Git. Transfer them separately when installing the application. Reproduce the snapshot using Python's standard library:
+The reviewed generated files `data/service-locations.json` and `data/service-locations-audit.json` are tracked in this private repository and arrive with `git clone` or `git pull`. During server installation, copy both from the checkout into `CM_DATA_DIR` using the [Windows server setup instructions](docs/windows-server.md). A separate RDP transfer is no longer needed. Reproduce the snapshot using Python's standard library:
 
 ```powershell
-python scripts/build-service-catalogue.py --source-root 'C:\Projects\ODA Data Generation'
+python scripts/build-service-catalogue.py --source-root 'C:\Projects\Routing\ODA Data Generation'
 ```
 
 The importer checks counts, lineage, additions and final workbook coverage before replacing the catalogue. Future source updates must update the reviewed source references and reconciliation checks; it does not guess the latest source from modification times.
@@ -65,6 +67,10 @@ The importer checks counts, lineage, additions and final workbook coverage befor
 Development reads `data/service-locations.json`; production reads `CM_DATA_DIR\service-locations.json`. Override with `CM_LOCATION_CATALOGUE_PATH` if needed. Atomic replacements reload without a rebuild. Missing or invalid lists reject new blocked-call submissions. Mailing addresses and test fixtures never seed the catalogue.
 
 The protected `/api/locations` endpoint accepts `kind=community|address|street`, `q`, and `community` for address/street searches. It returns at most 25 matches and indicates whether more exist. The full catalogue is not bundled into browser JavaScript.
+
+Blocked calls and complaint address suggestions read this same catalogue. Complaints can also accept a manually entered address when no listed address matches; blocked calls continue to require a selected service location.
+
+To install this update on CWS WEB01, follow [Deploy the November address update](docs/address-catalogue-update.md). The included catalogue installer checks the configured destination, preserves existing choices and backs up the installed catalogue before replacement.
 
 ## Storage
 

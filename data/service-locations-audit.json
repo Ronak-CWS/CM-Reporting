@@ -1,5 +1,6 @@
 {
-  "sourceSnapshot": "2026-09-24",
+  "sourceSnapshot": "2026-11-09",
+  "baselineSourceSnapshot": "2026-09-24",
   "sources": {
     "c9_routes": {
       "path": "outputs/2026-09-21_parkland_estates_raymond_32/optimized_routes.csv",
@@ -36,29 +37,49 @@
     "wood_buffalo_source": {
       "path": "CM-Wood Buffalo/data/source/Customers.xlsx",
       "sha256": "3188559ca4aa3e043574ba5fb5199a9cb7b4800e1e11bf8d85563b68e5b7e206"
+    },
+    "current_c9_master": {
+      "path": "outputs/2026-11-04_brooks_greenbrook_tuesday/Consolidated_addresses.csv",
+      "sha256": "adaf1d2aa6100bfc877c208a000b646ca8a7973a1f8a698df2798d28ef2711dc"
+    },
+    "current_c9_workbook": {
+      "path": "outputs/2026-11-04_brooks_greenbrook_tuesday/Southern_Alberta_Consolidated_Address_Master.xlsx",
+      "sha256": "e24e9b07671da1e392b5c402796ea6296381d462330df87972935822179c704c"
+    },
+    "meadow_lake_addresses": {
+      "path": "outputs/2026-11-09_brooks_meadow_lake_addresses/audit/source_addresses.json",
+      "sha256": "6920c16e7ce0e02a147e5aa825d4cf3cfb96c40d6f3f0832bace501f998e63b2"
+    },
+    "meadow_lake_receipt": {
+      "path": "outputs/2026-11-09_brooks_meadow_lake_addresses/audit/publication_receipt.json",
+      "sha256": "6af314b2f08bd0983764c0b55f92592b9dbd6f934dd48c83b9f35799dc927f8c"
+    },
+    "current_wood_buffalo_index": {
+      "path": "outputs/2026-11-05_wood_buffalo_driver_maps_B3/Wood Buffalo - Address map index.csv",
+      "sha256": "c67bf3818b2b02641c1db243293ba9c7d3cd241a8fdc17e1aadfeb88f7c4cc58"
     }
   },
   "sourceRows": {
     "C9": 17956,
     "Wood Buffalo": 19458
   },
-  "catalogueAddresses": 39676,
+  "catalogueAddresses": 39801,
   "communities": {
     "Anzac": 238,
     "Beaver Mines": 64,
-    "Bellevue": 519,
-    "Blairmore": 849,
-    "Brooks": 4046,
+    "Bellevue": 521,
+    "Blairmore": 856,
+    "Brooks": 4104,
     "Burdett": 132,
-    "Cardston": 1286,
-    "Coleman": 1154,
+    "Cardston": 1287,
+    "Coleman": 1158,
     "Conklin": 108,
     "Coutts": 137,
-    "Crowsnest Pass": 2409,
+    "Crowsnest Pass": 2422,
     "Draper": 74,
     "Enchant": 116,
     "Foremost": 243,
-    "Fort Macleod": 1272,
+    "Fort Macleod": 1274,
     "Fort McKay": 25,
     "Fort McMurray": 18570,
     "Frank": 104,
@@ -66,18 +87,18 @@
     "Grassy Lake": 226,
     "Gregoire Lake Estates": 88,
     "Hays": 72,
-    "Hillcrest": 302,
+    "Hillcrest": 304,
     "Janvier": 57,
     "Lundbreck": 154,
-    "Magrath": 829,
+    "Magrath": 837,
     "Milk River": 414,
-    "Pincher Creek": 1351,
-    "Raymond": 1377,
-    "Redcliff": 2130,
+    "Pincher Creek": 1359,
+    "Raymond": 1382,
+    "Redcliff": 2135,
     "Saprae Creek Estates": 298,
-    "Tilley": 148,
-    "Vauxhall": 435,
-    "Warner": 208,
+    "Tilley": 149,
+    "Vauxhall": 443,
+    "Warner": 209,
     "Winnifred": 23
   },
   "communityCoverage": {
@@ -339,6 +360,1039 @@
     "9",
     "9B"
   ],
+  "addressRefresh": {
+    "mode": "additions-only",
+    "baselineAddressesRetained": 39676,
+    "currentMasterRows": 18002,
+    "currentMasterActiveRows": 17808,
+    "currentMasterRejectedRowsNotImported": 194,
+    "currentMasterMatchesWorkbook": true,
+    "woodBuffaloCurrentReleaseMatchesBaseline": true,
+    "meadowLakeSuppliedAddresses": 57,
+    "meadowLakeIncludesUnlocated37": true,
+    "newAddresses": 112,
+    "newTownAliases": 13,
+    "newChoices": 125,
+    "newChoicesByCommunity": {
+      "Bellevue": 2,
+      "Blairmore": 7,
+      "Brooks": 58,
+      "Cardston": 1,
+      "Coleman": 4,
+      "Crowsnest Pass": 13,
+      "Fort Macleod": 2,
+      "Hillcrest": 2,
+      "Magrath": 8,
+      "Pincher Creek": 8,
+      "Raymond": 5,
+      "Redcliff": 5,
+      "Tilley": 1,
+      "Vauxhall": 8,
+      "Warner": 1
+    },
+    "additions": [
+      {
+        "community": "Pincher Creek",
+        "address": "Unit a, 1104 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-50EA68AA6BAA",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit b, 1104 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-309F9E7B2CD0",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit c, 1104 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-21144AF4D2D1",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit d, 1104 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-48BF1950BA8A",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit a, 1110 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-163F2E5F20EC",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit b, 1110 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F4684CE40179",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit c, 1110 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-CCCC2F095C37",
+        "townAlias": false
+      },
+      {
+        "community": "Pincher Creek",
+        "address": "Unit d, 1110 Tumbleweed Court",
+        "street": "Tumbleweed Court",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-80A9B3FBA22C",
+        "townAlias": false
+      },
+      {
+        "community": "Tilley",
+        "address": "173082 Range Road 130A",
+        "street": "Range Road 130A",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D86845AA6C32",
+        "townAlias": false
+      },
+      {
+        "community": "Raymond",
+        "address": "Unit 1, 133N 400 St W",
+        "street": "400 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-AD384F6E063D",
+        "townAlias": false
+      },
+      {
+        "community": "Raymond",
+        "address": "Unit 2, 133N 400 St W",
+        "street": "400 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-A27AA300AD23",
+        "townAlias": false
+      },
+      {
+        "community": "Raymond",
+        "address": "Unit 3, 133N 400 St W",
+        "street": "400 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-5DB028CEF300",
+        "townAlias": false
+      },
+      {
+        "community": "Raymond",
+        "address": "Unit 4, 133N 400 St W",
+        "street": "400 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F601D0CDADAA",
+        "townAlias": false
+      },
+      {
+        "community": "Raymond",
+        "address": "310S 50 St W",
+        "street": "50 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-738E06904827",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "203 3 Ave E",
+        "street": "3 Ave E",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-8B99305D87CF",
+        "townAlias": false
+      },
+      {
+        "community": "Cardston",
+        "address": "254 3 St W",
+        "street": "3 St W",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-79E55FFD2D6F",
+        "townAlias": false
+      },
+      {
+        "community": "Bellevue",
+        "address": "2514 214 St",
+        "street": "214 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-AD7770CF415F",
+        "townAlias": false
+      },
+      {
+        "community": "Bellevue",
+        "address": "20705 21 Ave",
+        "street": "21 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-CB372562FBA9",
+        "townAlias": false
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "1405 84 St",
+        "street": "84 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D0F2BDC379F0",
+        "townAlias": false
+      },
+      {
+        "community": "Coleman",
+        "address": "1405 84 St",
+        "street": "84 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D0F2BDC379F0",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "7625 18 Ave",
+        "street": "18 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-1ACD9BDEA06B",
+        "townAlias": false
+      },
+      {
+        "community": "Coleman",
+        "address": "7625 18 Ave",
+        "street": "18 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-1ACD9BDEA06B",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "8301 17 Ave",
+        "street": "17 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-042B4E74ED10",
+        "townAlias": false
+      },
+      {
+        "community": "Coleman",
+        "address": "8301 17 Ave",
+        "street": "17 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-042B4E74ED10",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "8001 20 Ave",
+        "street": "20 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-163B3701BA93",
+        "townAlias": false
+      },
+      {
+        "community": "Coleman",
+        "address": "8001 20 Ave",
+        "street": "20 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-163B3701BA93",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "Unit 1, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-DD74657F3767",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "Unit 1, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-DD74657F3767",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "Unit 2, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-5E792AE1AA5A",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "Unit 2, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-5E792AE1AA5A",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "Unit 3, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-6A6CA2B6120F",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "Unit 3, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-6A6CA2B6120F",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "Unit 4, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D608D158A565",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "Unit 4, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D608D158A565",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "Unit 5, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D23CEF799BAE",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "Unit 5, 2102 131 St",
+        "street": "131 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D23CEF799BAE",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "12309 21 Ave",
+        "street": "21 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F59D03369010",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "12309 21 Ave",
+        "street": "21 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F59D03369010",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "12933 17 Ave",
+        "street": "17 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-01757FB15F66",
+        "townAlias": false
+      },
+      {
+        "community": "Blairmore",
+        "address": "12933 17 Ave",
+        "street": "17 Ave",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-01757FB15F66",
+        "townAlias": true
+      },
+      {
+        "community": "Fort Macleod",
+        "address": "359 9 St",
+        "street": "9 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-5A9339613C77",
+        "townAlias": false
+      },
+      {
+        "community": "Fort Macleod",
+        "address": "627 27 St",
+        "street": "27 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-84B360AC5342",
+        "townAlias": false
+      },
+      {
+        "community": "Redcliff",
+        "address": "Unit 1, 22 1 St SE",
+        "street": "1 St SE",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-252C89D39401",
+        "townAlias": false
+      },
+      {
+        "community": "Redcliff",
+        "address": "Unit 2, 22 1 St SE",
+        "street": "1 St SE",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-CBBDD62A9303",
+        "townAlias": false
+      },
+      {
+        "community": "Redcliff",
+        "address": "Unit 3, 22 1 St SE",
+        "street": "1 St SE",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-7B3290B0CDDD",
+        "townAlias": false
+      },
+      {
+        "community": "Redcliff",
+        "address": "Unit 4, 22 1 St SE",
+        "street": "1 St SE",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-7995D9A1FD3D",
+        "townAlias": false
+      },
+      {
+        "community": "Redcliff",
+        "address": "301 Mitchell St N",
+        "street": "Mitchell St N",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-72B9BA9DC99F",
+        "townAlias": false
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "502 227 St",
+        "street": "227 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-027E67A092FE",
+        "townAlias": false
+      },
+      {
+        "community": "Hillcrest",
+        "address": "502 227 St",
+        "street": "227 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-027E67A092FE",
+        "townAlias": true
+      },
+      {
+        "community": "Crowsnest Pass",
+        "address": "717 227 St",
+        "street": "227 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-4BC0B90DA163",
+        "townAlias": false
+      },
+      {
+        "community": "Hillcrest",
+        "address": "717 227 St",
+        "street": "227 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-4BC0B90DA163",
+        "townAlias": true
+      },
+      {
+        "community": "Vauxhall",
+        "address": "120 11 St North",
+        "street": "11 St North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-55BBA542F153",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "627 7 Ave North",
+        "street": "7 Ave North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-839441BAAFE7",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "708 9 St",
+        "street": "9 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-0D89A98AD8ED",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "714 9 St",
+        "street": "9 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-E34BAB99D7DB",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "815 7A Ave North",
+        "street": "7A Ave North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-32448C5B3568",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "821 7A Ave North",
+        "street": "7A Ave North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-97C39A6182D5",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "829 7 Ave North",
+        "street": "7 Ave North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-E00D64AC2AEA",
+        "townAlias": false
+      },
+      {
+        "community": "Vauxhall",
+        "address": "949 7 Ave North",
+        "street": "7 Ave North",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-607AA23C9B9E",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 1, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D693C2529963",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 2, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F7E3BACD112D",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 3, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-CDD3AE26FF4F",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 4, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-99CD1B546F76",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 5, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-F3EC86E0E3EF",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 6, 35 2 St SW",
+        "street": "2 St SW",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-E22E7551C520",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "136 1 St NE",
+        "street": "1 St NE",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-41CF90F03AE7",
+        "townAlias": false
+      },
+      {
+        "community": "Magrath",
+        "address": "Unit 2, 238 Centre St N",
+        "street": "Centre St N",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D594EE94F926",
+        "townAlias": false
+      },
+      {
+        "community": "Warner",
+        "address": "98 3 St",
+        "street": "3 St",
+        "source": "Southern Alberta master",
+        "recordId": "C9M-D4394323DB6A",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "3 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926339",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "4 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926338",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "7 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926340",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "8 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926337",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "11 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926319",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "12 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926329",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "15 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926317",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "16 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926318",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "19 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926321",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "20 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926320",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "23 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926607",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "24 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926322",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "27 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926605",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "28 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926606",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "31 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926603",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "37 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926608",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "39 Meadow Lake Gate E",
+        "street": "Meadow Lake Gate E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926604",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "8 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926374",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "12 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926615",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "16 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926349",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "20 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926388",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "24 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926360",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "28 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926336",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "32 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926351",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "36 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926350",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "40 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926352",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "44 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926354",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "45 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926353",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "49 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926342",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "53 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926324",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "57 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926327",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "60 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926325",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "61 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926316",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "64 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926326",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "65 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926328",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "68 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926613",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "69 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926610",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "72 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926611",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "73 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926612",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "76 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926602",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "77 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926614",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "81 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926378",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "85 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926376",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "89 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926377",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "93 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926379",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "97 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926381",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "101 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926368",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "105 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926333",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "116 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926330",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "109 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926331",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "113 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926332",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "117 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926334",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "121 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926335",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "124 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926369",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "125 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926371",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "128 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926372",
+        "townAlias": false
+      },
+      {
+        "community": "Brooks",
+        "address": "129 Meadow Lake Close E",
+        "street": "Meadow Lake Close E",
+        "source": "Meadow Lake supplied addresses",
+        "recordId": "RPC11926370",
+        "townAlias": false
+      }
+    ]
+  },
   "collapsedIdenticalOptions": [
     {
       "community": "Magrath",

@@ -34,12 +34,12 @@ Install dependencies with `npm.cmd ci`, build with `npm.cmd run build`, and rest
 ## Preview and test
 
 1. Sign in to the office dashboard on CWS WEB01 and open **Exports**.
-2. Under **Today's blocked-call email**, check the date, report/photo counts, and recipient. Test messages go **only to rtandon@collectivewaste.ca**.
+2. Under **Today's blocked-call email**, check the date, report/photo counts, and default recipient. Leave **Send to** blank to use `REPORT_EMAIL_TEST_TO` from the server environment (currently `rtandon@collectivewaste.ca`). To test another recipient, enter their email address; separate multiple addresses with commas or semicolons. Entered recipients replace the defaults for that test only. Clearing the field restores the environment default.
 3. Select **Preview today's PDF** or **Preview today's Excel** to inspect the one-day report and all its photos. Preview downloads do not send email.
 4. Select either `notifications@collectivewaste.ca` or `no-reply@collectivewaste.ca` in **Test sender**, then select **Send test email**. The subject starts with `[CM Reporting TEST]`.
 5. Check your inbox and attachment. Choose the other sender to test it as well. Relay acceptance alone does not prove inbox delivery.
 
-The test works while automatic sending is off. It does not create records, enable the schedule, or use the automatic recipient list. Both sender options and test recipients are allowlisted in server configuration; browser input cannot add addresses. Authentication and same-origin protection apply. Driver-only sessions cannot access these controls. A one-minute database-backed limit applies per date and sender, so both sender options can be tested immediately without concurrent duplicate sends.
+The test works while automatic sending is off. It does not create records, enable the schedule, or change the environment or automatic recipient list (`REPORT_EMAIL_TO`). Sender options remain allowlisted in server configuration. Signed-in office users can override test recipients; the server validates plain email addresses, removes duplicates, and rejects malformed input before preparing a report or sending. Authentication and same-origin protection apply. Driver-only sessions cannot access these controls. A one-minute database-backed limit applies per date and sender, even when recipients change, so both sender options can be tested immediately without concurrent duplicate sends.
 
 The test and preview select today's records at request time. The automatic report selects today's records at the 5:00 PM run. Later submissions are not appended to an already queued report. If the service is down at 5:00 PM, it queues the current day's report when it resumes later that day; it does not create missed reports for previous dates. A day with no blocked calls produces a dated zero-report PDF.
 

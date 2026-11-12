@@ -3,7 +3,7 @@ import { getLocalStorage } from './local-storage';
 import { InputError } from './input-error';
 import { dailyBlockedCallAttachments } from './report-attachment.js';
 import { dailyBlockedCalls } from './daily-blocked-call-email.js';
-import { reportTestRecipients, smtpConfig, testEmailSenders } from './smtp-config.js';
+import { emailAddress, reportTestRecipients, smtpConfig, testEmailSenders } from './smtp-config.js';
 import { safeEmailErrorCode, sendEmail } from './smtp.js';
 
 export function emailTestReport(id: string) {
@@ -23,12 +23,29 @@ export function emailTestConfig() {
   return { recipients: reportTestRecipients(), senders: testEmailSenders() };
 }
 
-export async function sendReportTest(sender: string) {
+function testRecipients(override: unknown, defaults: string[]) {
+  if (override === undefined || (typeof override === 'string' && !override.trim())) return defaults;
+  if (typeof override !== 'string' || override.length > 25600 || /[\r\n]/.test(override)) {
+    throw new InputError('Enter plain email addresses separated by commas or semicolons.');
+  }
+  const addresses = override.split(/[,;]/).map((address) => address.trim()).filter(Boolean);
+  if (!addresses.length || addresses.length > 100) throw new InputError('Enter between 1 and 100 recipient email addresses.');
+  try {
+    return [...new Set(addresses.map((address) => emailAddress(address).toLowerCase()))];
+  } catch {
+    throw new InputError('Enter valid email addresses separated by commas or semicolons.');
+  }
+}
+
+export async function sendReportTest(sender: string, recipientOverride?: unknown) {
   const { sqlite, directory } = getLocalStorage();
   const batch = dailyBlockedCalls(sqlite);
   const id = `blocked-day:${batch.day}`;
-  const { recipients, senders } = emailTestConfig();
+  const { recipients: defaults, senders } = emailTestConfig();
   if (!senders.includes(sender)) throw new InputError('Choose one of the approved test sender addresses.');
+  // An office user's override applies only to this test; never save it to the
+  // environment or automatic outbox, or append the configured recipients.
+  const recipients = testRecipients(recipientOverride, defaults);
   // Persist the limit across processes and restarts; parallel clicks cannot send twice.
   sqlite.exec(`CREATE TABLE IF NOT EXISTS report_email_test_sender_limits (
     report_id TEXT NOT NULL, sender TEXT NOT NULL, next_allowed_at INTEGER NOT NULL, PRIMARY KEY (report_id, sender))`);

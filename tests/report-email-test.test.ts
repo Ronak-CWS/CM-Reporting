@@ -19,8 +19,8 @@ vi.mock('../lib/smtp.js', async (original) => ({ ...await original<typeof import
 import { GET, POST } from '../app/api/email/blocked-calls/route';
 import { GET as download } from '../app/api/email/blocked-calls/report/route';
 let fixture: Awaited<ReturnType<typeof createEmailFixture>>;
-const request = (method = 'POST', origin = 'https://cm.test', from = 'test-sender@example.invalid') => new Request('https://cm.test/api/test', {
-  method, headers: { origin, 'Content-Type': 'application/json' }, ...(method === 'POST' ? { body: JSON.stringify({ from }) } : {}) });
+const request = (method = 'POST', origin = 'https://cm.test', from = 'test-sender@example.invalid', to?: unknown) => new Request('https://cm.test/api/test', {
+  method, headers: { origin, 'Content-Type': 'application/json' }, ...(method === 'POST' ? { body: JSON.stringify({ from, to }) } : {}) });
 
 beforeEach(async () => {
   fixture = await createEmailFixture(await mkdtemp(path.join(tmpdir(), 'cm-email-test-')));
@@ -62,7 +62,7 @@ describe('selected report email test', () => {
     expect(await response.json()).toMatchObject({ accepted: ['two@example.invalid'], failed: [{ recipient: 'one@example.invalid', code: 'EENVELOPE' }] });
   });
 
-  it('protects both routes and rejects cross-origin sends and browser-selected recipients', async () => {
+  it('protects both routes and rejects cross-origin sends and unapproved senders', async () => {
     expect((await POST(request('POST', 'https://outside.invalid'))).status).toBe(403);
     expect(smtp.send).not.toHaveBeenCalled();
     vi.stubEnv('CM_AUTH_MODE', 'proxy');
@@ -76,6 +76,39 @@ describe('selected report email test', () => {
     await POST(new Request('https://cm.test/api/test', { method: 'POST', headers: { origin: 'https://cm.test', 'Content-Type': 'application/json' },
       body: JSON.stringify({ from: 'test-sender@example.invalid', recipients: ['unapproved@example.invalid'] }) }));
     expect(smtp.send.mock.calls.map(([message]) => message.to)).toEqual(['one@example.invalid', 'two@example.invalid']);
+  });
+
+  it('replaces default recipients only for this test and keeps the sender cooldown when recipients change', async () => {
+    const response = await POST(request('POST', 'https://cm.test', 'test-sender@example.invalid', ' EDITED@example.invalid; second@example.invalid, edited@example.invalid '));
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ accepted: ['edited@example.invalid', 'second@example.invalid'], failed: [] });
+    expect(smtp.send.mock.calls.map(([message]) => message.to)).toEqual(['edited@example.invalid', 'second@example.invalid']);
+    expect(smtp.send.mock.calls[0][0].attachments[0].filename).toBe('blocked-calls-2026-11-10.pdf');
+    expect(process.env.REPORT_EMAIL_TEST_TO).toBe('one@example.invalid,two@example.invalid');
+    expect(process.env.REPORT_EMAIL_TO).toBe('automatic@example.invalid');
+    expect(process.env.REPORT_EMAIL_ENABLED).toBe('false');
+    expect(await (await GET(request('GET'))).json()).toMatchObject({ recipients: ['one@example.invalid', 'two@example.invalid'] });
+    expect(fixture.database.prepare('SELECT count(*) AS n FROM report_email_outbox').get()?.n).toBe(0);
+    expect((await POST(request('POST', 'https://cm.test', 'test-sender@example.invalid', 'different@example.invalid'))).status).toBe(429);
+    expect(smtp.send).toHaveBeenCalledTimes(2);
+  });
+
+  it.each(['', '   \t  '])('uses environment recipients when the override is blank (%j)', async (to) => {
+    const response = await POST(request('POST', 'https://cm.test', 'test-sender@example.invalid', to));
+    expect(response.status).toBe(200);
+    expect(smtp.send.mock.calls.map(([message]) => message.to)).toEqual(['one@example.invalid', 'two@example.invalid']);
+  });
+
+  it.each([
+    { to: 'not-an-email' }, { to: 'valid@example.invalid, invalid-address' },
+    { to: 'valid@example.invalid\r\nBcc: extra@example.invalid' }, { to: '; , ;' },
+    { to: ['valid@example.invalid'] }, { to: null }, { to: 123 },
+    { to: Array.from({ length: 101 }, (_, index) => `recipient-${index}@example.invalid`).join(',') },
+  ])('rejects malformed recipient overrides before sending or claiming a cooldown (%#)', async ({ to }) => {
+    const response = await POST(request('POST', 'https://cm.test', 'test-sender@example.invalid', to));
+    expect(response.status).toBe(400);
+    expect(smtp.send).not.toHaveBeenCalled();
+    expect(fixture.database.prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'report_email_test_sender_limits'").get()).toBeUndefined();
   });
 
   it('downloads the same portable report without sending email or needing SMTP credentials', async () => {

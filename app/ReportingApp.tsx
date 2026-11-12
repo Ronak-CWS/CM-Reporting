@@ -574,7 +574,7 @@ function ExportCard({ type, title, description }: { type: 'daily' | 'complaints'
   );
 }
 
-function ExportsView({ notificationsEnabled }: { notificationsEnabled: boolean }) {
+function ExportsView() {
   return (
     <>
       <div className="page-heading page-heading--register">
@@ -590,17 +590,7 @@ function ExportsView({ notificationsEnabled }: { notificationsEnabled: boolean }
         <ExportCard type="complaints" title="Complaint record export"
           description="The Exhibit 7 inquiry, employee, customer, and resolution fields, with reference numbers and priority." />
       </section>
-      <section className="panel delivery-panel">
-        <div>
-          <p className="eyebrow">Report notifications</p>
-          <h2>Email delivery</h2>
-          <p>{notificationsEnabled
-            ? 'Blocked calls are emailed in a daily report. New complaints send individual notifications. Download Excel exports above when needed.'
-            : 'Email notifications are not enabled yet. Reports are saved in the dashboard, and Excel exports are available above.'}</p>
-        </div>
-        <span className="connection-badge">{notificationsEnabled ? 'Notifications enabled' : 'Notifications not enabled'}</span>
-      </section>
-      <section className="panel"><ReportEmailActions /></section>
+      <ReportEmailActions />
     </>
   );
 }
@@ -1124,7 +1114,7 @@ export default function ReportingApp({ user = null, reporterName = user?.name ||
               onOpenRecord={setSelectedRecord}
             />
           ) : null}
-          {view === 'exports' ? <ExportsView notificationsEnabled={notificationsEnabled} /> : null}
+          {view === 'exports' ? <ExportsView /> : null}
         </div>
       </section>
 

@@ -34,7 +34,7 @@ export async function POST(request: Request) {
     if (!request.headers.get('content-type')?.toLowerCase().startsWith('application/json')) throw new InputError('Choose a test sender before sending.', 415);
     const { payload } = await readReportBody(request);
     if (typeof payload?.from !== 'string') throw new InputError('Choose a test sender before sending.');
-    const result = await sendReportTest(payload.from);
+    const result = await sendReportTest(payload.from, payload.to);
     return Response.json(result, { headers });
   } catch (error) {
     const code = safeEmailErrorCode(error);

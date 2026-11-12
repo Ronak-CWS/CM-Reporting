@@ -8,7 +8,7 @@ import { sendEmail, verifySmtp } from '../lib/smtp.js';
 beforeEach(() => {
   for (const [name, value] of Object.entries({ SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587', SMTP_SECURE: 'false',
     SMTP_REQUIRE_TLS: 'true', SMTP_IGNORE_TLS: 'false', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid', SMTP_PASS: 'test-password-never-a-real-secret',
-    EMAIL_FROM: 'sender@example.invalid', REPORT_EMAIL_ENABLED: 'true', REPORT_EMAIL_TO: 'office@example.invalid' })) vi.stubEnv(name, value);
+    EMAIL_FROM: 'sender@example.invalid', REPORT_EMAIL_ENABLED: 'true', REPORT_ATTACHMENT_MAX_MB: '20', REPORT_EMAIL_TO: 'office@example.invalid' })) vi.stubEnv(name, value);
   smtp.createTransport.mockReturnValue({ sendMail: smtp.sendMail, verify: smtp.verify, close: smtp.close });
   smtp.sendMail.mockResolvedValue({ accepted: ['office@example.invalid'], rejected: [] });
   smtp.verify.mockResolvedValue(true);
@@ -47,8 +47,18 @@ describe('SMTP notifications', () => {
   it('refuses unsafe or oversized report attachments before contacting SMTP', async () => {
     const attachment = { filename: '../report.pdf', content: Buffer.from('pdf'), contentType: 'application/pdf' };
     await expect(sendEmail({ ...message, attachments: [attachment] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
-    await expect(sendEmail({ ...message, attachments: [{ ...attachment, filename: 'report.pdf', content: Buffer.alloc(5 * 1024 * 1024 + 1) }] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
+    await expect(sendEmail({ ...message, attachments: [{ ...attachment, filename: 'report.pdf', content: Buffer.alloc(20 * 1024 * 1024 + 1) }] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
     expect(smtp.createTransport).not.toHaveBeenCalled();
+  });
+
+  it('accepts a report above the old 5 MiB limit and enforces the total across attachments', async () => {
+    const attachment = { filename: 'report.pdf', content: Buffer.alloc(6 * 1024 * 1024), contentType: 'application/pdf' };
+    await sendEmail({ ...message, attachments: [attachment] });
+    expect(smtp.sendMail).toHaveBeenCalledOnce();
+    await expect(sendEmail({ ...message, attachments: Array(4).fill(attachment) })).rejects.toMatchObject({ code: 'EATTACHMENT' });
+    expect(smtp.sendMail).toHaveBeenCalledOnce();
+    vi.stubEnv('REPORT_ATTACHMENT_MAX_MB', '5');
+    await expect(sendEmail({ ...message, attachments: [attachment] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
   });
 
   it('uses the IT-approved TLS-disabled relay without sending stale credentials', async () => {

@@ -1,12 +1,12 @@
 import ExcelJS from 'exceljs';
 import { blockedCallDetailRows, cleanReportText, dailyBlockedCallReports } from './blocked-call-report.js';
 import { reportImageBudget, reportPhotoCopies } from './report-attachment.js';
+import { reportAttachmentLimitBytes, reportSizeError } from './report-limits.js';
 import type { DatabaseSync } from 'node:sqlite';
 
 const GREEN = 'FF0A5947';
 const INK = 'FF203139';
 const PALE = 'FFEBF4EF';
-const MAX_BYTES = 5 * 1024 * 1024;
 // OOXML 1 is US Letter; ExcelJS omits Letter from its TypeScript enum.
 const LETTER = 1 as ExcelJS.PaperSize;
 
@@ -28,6 +28,7 @@ function wrap(value: string, width: number) {
 /** Photo-inclusive daily workbook; existing register exports remain available. */
 export async function dailyBlockedCallWorkbook(database: DatabaseSync, directory: string, ids: string[], day: string) {
   try {
+    const maxReportBytes = reportAttachmentLimitBytes();
     const entries = dailyBlockedCallReports(database, ids, day);
     const photoCount = entries.reduce((total, entry) => total + entry.photos.length, 0);
     const workbook = new ExcelJS.Workbook();
@@ -178,10 +179,10 @@ export async function dailyBlockedCallWorkbook(database: DatabaseSync, directory
     summary.pageSetup.printArea = `A1:H${Math.max(5, entries.length + 4)}`;
     details.pageSetup.printArea = `A1:L${Math.max(4, detailRow - 1)}`;
     const content = Buffer.from(await workbook.xlsx.writeBuffer());
-    if (content.length > MAX_BYTES) throw new Error('Report is too large.');
+    if (content.length > maxReportBytes) throw reportSizeError(`Prepared Excel report is ${content.length} bytes; the attachment limit is ${maxReportBytes} bytes.`);
     return [{ filename: `blocked-calls-${day}.xlsx`, content,
       contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }];
-  } catch {
-    throw Object.assign(new Error('The Excel report could not be prepared with all of its photos.'), { code: 'EATTACHMENT' });
+  } catch (error) {
+    throw Object.assign(new Error('The Excel report could not be prepared with all of its photos.', { cause: error }), { code: 'EATTACHMENT' });
   }
 }

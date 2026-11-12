@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmailFixture } from './helpers/email-fixture.mjs';
 import { PDFDocument } from 'pdf-lib';
 import { privatePhotoPath } from '../lib/photo-path';
+import * as reportAttachments from '../lib/report-attachment.js';
+import { reportSizeError } from '../lib/report-limits.js';
 import ExcelJS from 'exceljs';
 
 const runtime = vi.hoisted(() => ({ sqlite: undefined as DatabaseSync | undefined, directory: '' }));
@@ -120,5 +122,20 @@ describe('selected report email test', () => {
     expect(emailBody).toMatchObject({ code: 'EATTACHMENT', error: expect.not.stringContaining(fixture.directory) });
     expect(emailBody).not.toHaveProperty('cause');
     expect(smtp.send).not.toHaveBeenCalled();
+  });
+
+  it('explains size limits separately from missing or corrupt photo evidence', async () => {
+    const failure = Object.assign(new Error('private internal detail', { cause: reportSizeError('private byte budget') }), { code: 'EATTACHMENT' });
+    const build = vi.spyOn(reportAttachments, 'dailyBlockedCallAttachments').mockRejectedValue(failure);
+    try {
+      for (const response of [await POST(request()), await download(request('GET'))]) {
+        expect(response.status).toBe(503);
+        const body = await response.text();
+        expect(body).toContain('attachment size limit');
+        expect(body).not.toContain('Check the saved photos');
+        expect(body).not.toContain('private');
+      }
+      expect(smtp.send).not.toHaveBeenCalled();
+    } finally { build.mockRestore(); }
   });
 });

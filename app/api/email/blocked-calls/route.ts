@@ -6,6 +6,7 @@ import { readReportBody } from '../../../../lib/request-body';
 import { safeEmailErrorCode } from '../../../../lib/smtp.js';
 import { dailyBlockedCalls, dailyEmailTime } from '../../../../lib/daily-blocked-call-email.js';
 import { getLocalStorage } from '../../../../lib/local-storage';
+import { isReportSizeError } from '../../../../lib/report-limits.js';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -37,7 +38,8 @@ export async function POST(request: Request) {
     return Response.json(result, { headers });
   } catch (error) {
     const code = safeEmailErrorCode(error);
-    return Response.json({ error: error instanceof InputError ? error.message : code === 'EATTACHMENT'
+    return Response.json({ error: error instanceof InputError ? error.message : isReportSizeError(error)
+      ? 'Today\'s report exceeds the configured attachment size limit. Ask the administrator to review the report size limit.' : code === 'EATTACHMENT'
       ? 'The report PDF could not be prepared with all photos. Check the saved photos and try again.'
       : 'The email test could not start. Check the server email settings and try again.', code },
     { status: error instanceof InputError ? error.status : 503,

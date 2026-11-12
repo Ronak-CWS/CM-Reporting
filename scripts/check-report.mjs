@@ -6,6 +6,7 @@ import { dataDirectory } from '../lib/storage-config.ts';
 import { dailyBlockedCalls } from '../lib/daily-blocked-call-email.js';
 import { blockedCallReport } from '../lib/blocked-call-report.js';
 import { dailyBlockedCallAttachments, reportImageBudget, reportPhotoCopies } from '../lib/report-attachment.js';
+import { reportAttachmentLimitBytes } from '../lib/report-limits.js';
 
 function diagnosticError(error) {
   const seen = new Set();
@@ -27,7 +28,12 @@ export async function checkReport(directory, now = new Date()) {
   let reports = 0;
   let photos = 0;
   let pdfBytes;
+  let attachmentLimitBytes;
+  let imageBudgetBytes;
+  let stage = 'configuration';
   try {
+    attachmentLimitBytes = reportAttachmentLimitBytes();
+    stage = 'database';
     database = new DatabaseSync(path.join(directory, 'reports.sqlite'), { readOnly: true });
     database.exec('PRAGMA query_only = ON; PRAGMA busy_timeout = 5000;');
     const batch = dailyBlockedCalls(database, now);
@@ -46,7 +52,7 @@ export async function checkReport(directory, now = new Date()) {
       } catch (error) { issues.push({ stage: 'report-metadata', reportId: id, ...diagnosticError(error) }); }
     }
     let budget;
-    try { budget = reportImageBudget(entries); }
+    try { budget = reportImageBudget(entries); imageBudgetBytes = budget; }
     catch (error) { issues.push({ stage: 'attachment-budget', ...diagnosticError(error) }); }
     if (budget) {
       for (const entry of entries) {
@@ -63,10 +69,10 @@ export async function checkReport(directory, now = new Date()) {
         pdfBytes = attachment.content.length;
       } catch (error) { issues.push({ stage: 'daily-pdf', ...diagnosticError(error) }); }
     }
-  } catch (error) { issues.push({ stage: 'database', ...diagnosticError(error) }); }
+  } catch (error) { issues.push({ stage, ...diagnosticError(error) }); }
   finally { database?.close(); }
-  return { status: issues.length ? 'FAIL' : 'PASS', directory, day, reports, photos,
-    ...(pdfBytes !== undefined ? { pdfBytes } : {}), issues };
+  return { status: issues.length ? 'FAIL' : 'PASS', directory, day, reports, photos, attachmentLimitBytes, imageBudgetBytes,
+    ...(pdfBytes !== undefined ? { pdfBytes } : {}), issueCount: issues.length, omittedIssues: Math.max(0, issues.length - 20), issues: issues.slice(0, 20) };
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

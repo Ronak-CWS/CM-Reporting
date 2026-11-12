@@ -11,6 +11,7 @@
     "start": "node scripts/start-server.mjs",
     "server:check": "node scripts/check-server.mjs",
     "email:check": "node scripts/check-email.mjs",
+    "report:check": "node scripts/check-report.mjs",
     "email:worker": "node scripts/email-worker.mjs",
     "storage:backup": "node scripts/storage-maintenance.mjs backup",
     "storage:verify": "node scripts/storage-maintenance.mjs verify",

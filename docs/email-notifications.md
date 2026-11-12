@@ -65,6 +65,10 @@ Run `npm.cmd run server:check` for configuration validation and `npm.cmd run ema
 
 `ETIMEDOUT` means the connection/greeting/response timed out, `ETLS` means TLS failed, and `EENVELOPE` means the relay rejected sender or recipient. Ask IT to inspect relay logs if a test fails.
 
+For `EATTACHMENT` or a failed report preview, run `npm.cmd run report:check` from the application directory on CWS WEB01. It loads the production environment and opens `reports.sqlite` read-only. It checks today's Edmonton report selection, the PDF engine/font, every saved photo, and the complete 5 MiB PDF. It sends no email, does not change records/photos or the outbox, and does not enable automatic delivery. Output identifies the failing stage and, for a photo failure, its report reference and photo number. Diagnostic errors can include private file paths; the check does not print SMTP credentials or contact SMTP.
+
+The CLI preserves the underlying error that the browser's generic response intentionally hides. If it passes as an administrator while the service preview fails, compare the CMReporting service account's file permissions, working directory and `CM_DATA_DIR` with that command's environment. After pulling this diagnostic, no rebuild or service restart is needed to run the command itself.
+
 ### Relay diagnostic observed on 2026-11-12
 
 The CWS WEB01 diagnostic connected to `Smtp1.shivtek.ca:25`. Its EHLO response advertised `SIZE 50480000`, `AUTH LOGIN`, and `HELP`, with no `STARTTLS`. A separate STARTTLS attempt returned `503 Bad sequence of commands` before any TLS handshake or certificate check. An unencrypted connection-only probe completed without login; it did not send a message or establish permission to use either sender address.

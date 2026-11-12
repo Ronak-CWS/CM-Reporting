@@ -5,6 +5,7 @@ import type { DatabaseSync } from 'node:sqlite';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { createEmailFixture } from './helpers/email-fixture.mjs';
 import { PDFDocument } from 'pdf-lib';
+import { privatePhotoPath } from '../lib/photo-path';
 import ExcelJS from 'exceljs';
 
 const runtime = vi.hoisted(() => ({ sqlite: undefined as DatabaseSync | undefined, directory: '' }));
@@ -103,6 +104,21 @@ describe('selected report email test', () => {
     vi.stubEnv('REPORT_EMAIL_TEST_TO', '');
     expect((await GET(request('GET'))).status).toBe(503);
     expect((await POST(request())).status).toBe(503);
+    expect(smtp.send).not.toHaveBeenCalled();
+  });
+
+  it('keeps private attachment causes out of HTTP responses and does not send incomplete evidence', async () => {
+    await rm(privatePhotoPath(fixture.directory, fixture.keys[0]));
+    const preview = await download(request('GET'));
+    expect(preview.status).toBe(503);
+    const previewBody = await preview.text();
+    expect(previewBody).not.toContain(fixture.directory);
+    expect(previewBody).not.toContain('ENOENT');
+    const email = await POST(request());
+    expect(email.status).toBe(503);
+    const emailBody = await email.json();
+    expect(emailBody).toMatchObject({ code: 'EATTACHMENT', error: expect.not.stringContaining(fixture.directory) });
+    expect(emailBody).not.toHaveProperty('cause');
     expect(smtp.send).not.toHaveBeenCalled();
   });
 });

@@ -62,7 +62,7 @@ npm.cmd run build
 
 The configuration check verifies authentication, private storage and the catalogue without starting a server. The build embeds `/cm-reporting` in browser URLs; rebuild if it changes. Production rejects missing credentials and the development authentication bypass.
 
-For the daily blocked-call report and complaint notifications, complete [SMTP and recipient setup](email-notifications.md). The preflight also validates enabled email configuration. `npm.cmd run email:check` verifies SMTP connectivity, TLS and the configured authentication mode without sending a message. The company relay uses `Smtp1.shivtek.ca` on outbound TCP 25 from CWS WEB01; application traffic still uses loopback port 3013.
+For the daily blocked-call report and complaint notifications, complete [SMTP and recipient setup](email-notifications.md). The preflight also validates enabled email configuration. `npm.cmd run email:check` verifies SMTP connectivity using the configured authentication and encryption modes without sending a message. SmartLayer's approved company relay uses `Smtp1.shivtek.ca` on outbound TCP 25 from CWS WEB01 with TLS disabled and no login; application traffic still uses loopback port 3013.
 
 ## IIS reverse proxy
 

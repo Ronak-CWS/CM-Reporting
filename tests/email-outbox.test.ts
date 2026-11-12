@@ -90,7 +90,7 @@ describe('durable report email delivery', () => {
     const result = await promisify(execFile)(process.execPath, ['scripts/email-worker.mjs', '--once'], { env: {
       ...process.env, NODE_ENV: 'production', CM_DATA_DIR: directory, REPORT_EMAIL_ENABLED: 'true',
       REPORT_EMAIL_TO: 'office@example.invalid', SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587',
-      SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid',
+      SMTP_SECURE: 'false', SMTP_REQUIRE_TLS: 'true', SMTP_IGNORE_TLS: 'false', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid',
       SMTP_PASS: 'unit-test-password-not-real', EMAIL_FROM: 'sender@example.invalid',
     } });
     expect(result.stdout).toBe('');

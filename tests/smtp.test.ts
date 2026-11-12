@@ -7,7 +7,7 @@ import { sendEmail, verifySmtp } from '../lib/smtp.js';
 
 beforeEach(() => {
   for (const [name, value] of Object.entries({ SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '587', SMTP_SECURE: 'false',
-    SMTP_REQUIRE_TLS: 'true', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid', SMTP_PASS: 'test-password-never-a-real-secret',
+    SMTP_REQUIRE_TLS: 'true', SMTP_IGNORE_TLS: 'false', SMTP_AUTH_MODE: 'login', SMTP_USER: 'sender@example.invalid', SMTP_PASS: 'test-password-never-a-real-secret',
     EMAIL_FROM: 'sender@example.invalid', REPORT_EMAIL_ENABLED: 'true', REPORT_EMAIL_TO: 'office@example.invalid' })) vi.stubEnv(name, value);
   smtp.createTransport.mockReturnValue({ sendMail: smtp.sendMail, verify: smtp.verify, close: smtp.close });
   smtp.sendMail.mockResolvedValue({ accepted: ['office@example.invalid'], rejected: [] });
@@ -17,7 +17,7 @@ afterEach(() => { vi.unstubAllEnvs(); });
 
 const message = { to: 'office@example.invalid', subject: 'New report', text: 'A report was saved.', messageId: '<test-report@example.invalid>' };
 
-describe('authenticated SMTP notifications', () => {
+describe('SMTP notifications', () => {
   it('uses separate configured test recipients and sender without changing automatic emails', async () => {
     vi.stubEnv('REPORT_EMAIL_TEST_TO', 'test-only@example.invalid');
     vi.stubEnv('EMAIL_TEST_FROM_OPTIONS', 'test-sender@example.invalid,alternate@example.invalid');
@@ -49,6 +49,47 @@ describe('authenticated SMTP notifications', () => {
     await expect(sendEmail({ ...message, attachments: [attachment] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
     await expect(sendEmail({ ...message, attachments: [{ ...attachment, filename: 'report.pdf', content: Buffer.alloc(5 * 1024 * 1024 + 1) }] })).rejects.toMatchObject({ code: 'EATTACHMENT' });
     expect(smtp.createTransport).not.toHaveBeenCalled();
+  });
+
+  it('uses the IT-approved TLS-disabled relay without sending stale credentials', async () => {
+    vi.stubEnv('SMTP_HOST', 'Smtp1.shivtek.ca');
+    vi.stubEnv('SMTP_PORT', '25');
+    vi.stubEnv('SMTP_AUTH_MODE', 'none');
+    vi.stubEnv('SMTP_REQUIRE_TLS', 'false');
+    expect(smtpConfig).toThrow('SMTP_IGNORE_TLS');
+    vi.stubEnv('SMTP_IGNORE_TLS', 'true');
+    const attachments = [{ filename: 'report.pdf', content: Buffer.from('%PDF-test'), contentType: 'application/pdf' }];
+    await sendEmail({ ...message, attachments });
+    const settings = smtp.createTransport.mock.calls[0][0];
+    expect(settings).toMatchObject({ host: 'Smtp1.shivtek.ca', port: 25, secure: false, requireTLS: false, ignoreTLS: true });
+    expect(settings).not.toHaveProperty('auth');
+    expect(settings).not.toHaveProperty('tls');
+    expect(smtp.sendMail).toHaveBeenCalledWith({ ...message, from: 'sender@example.invalid', attachments });
+  });
+
+  it('rejects login credentials and other ports when TLS is disabled', () => {
+    vi.stubEnv('SMTP_REQUIRE_TLS', 'false');
+    vi.stubEnv('SMTP_IGNORE_TLS', 'true');
+    vi.stubEnv('SMTP_PORT', '25');
+    expect(smtpConfig).toThrow('SMTP_AUTH_MODE=none');
+    vi.stubEnv('SMTP_AUTH_MODE', 'none');
+    vi.stubEnv('SMTP_PORT', '587');
+    expect(smtpConfig).toThrow('SMTP_PORT=25');
+  });
+
+  it('rejects conflicting or invalid TLS settings', () => {
+    vi.stubEnv('SMTP_IGNORE_TLS', 'true');
+    expect(smtpConfig).toThrow('SMTP_REQUIRE_TLS=false');
+    vi.stubEnv('SMTP_REQUIRE_TLS', 'false');
+    vi.stubEnv('SMTP_SECURE', 'true');
+    expect(smtpConfig).toThrow('SMTP_SECURE=false');
+    vi.stubEnv('SMTP_IGNORE_TLS', 'yes');
+    expect(smtpConfig).toThrow('SMTP_IGNORE_TLS must be true or false');
+  });
+
+  it('retains required STARTTLS when the new setting is absent', () => {
+    vi.stubEnv('SMTP_IGNORE_TLS', '');
+    expect(smtpConfig()).toMatchObject({ requireTLS: true, ignoreTLS: false, auth: { user: 'sender@example.invalid' } });
   });
 
   it('requires STARTTLS with normal certificate checks on port 587 and uses the configured sender', async () => {

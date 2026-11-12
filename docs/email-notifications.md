@@ -14,7 +14,8 @@ REPORT_EMAIL_TEST_TO=rtandon@collectivewaste.ca
 SMTP_HOST=Smtp1.shivtek.ca
 SMTP_PORT=25
 SMTP_SECURE=false
-SMTP_REQUIRE_TLS=true
+SMTP_REQUIRE_TLS=false
+SMTP_IGNORE_TLS=true
 SMTP_AUTH_MODE=none
 SMTP_USER=
 SMTP_PASS=
@@ -22,9 +23,11 @@ EMAIL_FROM=notifications@collectivewaste.ca
 EMAIL_TEST_FROM_OPTIONS=notifications@collectivewaste.ca,no-reply@collectivewaste.ca
 ```
 
-`SMTP_AUTH_MODE=none` omits login and relies on IT's approval of the application server's source IP. IT must also permit both From addresses. If credentials are required, select `SMTP_AUTH_MODE=login` and install them privately. Existing configurations without `SMTP_AUTH_MODE` continue to use login.
+`SMTP_AUTH_MODE=none` omits login and relies on IT's approval of the application server's source IP. IT must also permit both From addresses. Leave the username and password blank. Existing configurations without `SMTP_AUTH_MODE` continue to use login.
 
-STARTTLS and certificate verification remain required. Confirm that the relay supports STARTTLS on port 25 and permits outbound access from CWS WEB01. Do not disable certificate verification to work around a connection failure.
+SmartLayer confirmed that TLS is intentionally disabled and not required for `smtp1`. This configuration explicitly disables both implicit TLS and STARTTLS, including automatic upgrades. Report contents and photos are unencrypted on the connection from CWS WEB01 to this relay. This is the supplied relay's approved configuration; it does not establish the encryption used on later delivery hops.
+
+The app permits `SMTP_IGNORE_TLS=true` only with `SMTP_SECURE=false`, `SMTP_REQUIRE_TLS=false`, `SMTP_AUTH_MODE=none`, and port 25. It never transmits login credentials in this mode, including stale credentials left in another environment source. Other SMTP services retain the existing TLS defaults: set `SMTP_IGNORE_TLS=false` and use required STARTTLS or implicit TLS. Certificate verification remains enabled in TLS modes.
 
 Install dependencies with `npm.cmd ci`, build with `npm.cmd run build`, and restart the CM Reporting service after applying code or environment changes. Update NSSM environment values too if it supplies these variables directly. The service entry point remains `scripts/start-server.mjs`.
 
@@ -58,9 +61,15 @@ Missing or corrupt photos, or a day too large to fit after resizing, produce `EA
 
 ## Verification and retries
 
-Run `npm.cmd run server:check` for configuration validation and `npm.cmd run email:check` on CWS WEB01 to check the SMTP connection and TLS without sending mail. The check cannot prove sender permission or inbox delivery.
+Run `npm.cmd run server:check` for configuration validation and `npm.cmd run email:check` on CWS WEB01 to check the SMTP connection using the configured authentication and encryption modes without sending mail. For smtp1 it should print `authentication: none; encryption: disabled (approved relay)`. The check cannot prove sender permission or inbox delivery.
 
 `ETIMEDOUT` means the connection/greeting/response timed out, `ETLS` means TLS failed, and `EENVELOPE` means the relay rejected sender or recipient. Ask IT to inspect relay logs if a test fails.
+
+### Relay diagnostic observed on 2026-11-12
+
+The CWS WEB01 diagnostic connected to `Smtp1.shivtek.ca:25`. Its EHLO response advertised `SIZE 50480000`, `AUTH LOGIN`, and `HELP`, with no `STARTTLS`. A separate STARTTLS attempt returned `503 Bad sequence of commands` before any TLS handshake or certificate check. An unencrypted connection-only probe completed without login; it did not send a message or establish permission to use either sender address.
+
+SmartLayer's supplied email confirms the lack of TLS is intentional. The presence of `AUTH LOGIN` advertises an available login method; it does not establish whether this application's source IP must authenticate. `email:check` prints the effective host, port, login mode and encryption mode without exposing credentials, making old environment overrides visible. Process/service environment values take precedence over environment files, so clear earlier PowerShell overrides or update them before checking the production file.
 
 Automatic delivery retries begin after 30 seconds and increase to one hour. Failures do not roll back saved reports. Worker leases expire after five minutes. SMTP-accepted recipients are marked separately, preventing another send to an already accepted recipient during a retry. A crash after SMTP acceptance but before the database update can still produce a duplicate.
 

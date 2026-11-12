@@ -26,7 +26,7 @@ beforeEach(async () => {
   for (const [name, value] of Object.entries({ CM_AUTH_MODE: 'development', CM_PUBLIC_ORIGIN: 'https://cm.test',
     REPORT_EMAIL_ENABLED: 'false', REPORT_EMAIL_TO: 'automatic@example.invalid', REPORT_EMAIL_TEST_TO: 'one@example.invalid,two@example.invalid',
     SMTP_HOST: 'smtp.example.invalid', SMTP_PORT: '25', SMTP_AUTH_MODE: 'none', SMTP_SECURE: 'false',
-    SMTP_REQUIRE_TLS: 'true', EMAIL_FROM: 'sender@example.invalid', EMAIL_TEST_FROM_OPTIONS: 'test-sender@example.invalid,alternate@example.invalid' })) vi.stubEnv(name, value);
+    SMTP_REQUIRE_TLS: 'true', SMTP_IGNORE_TLS: 'false', EMAIL_FROM: 'sender@example.invalid', EMAIL_TEST_FROM_OPTIONS: 'test-sender@example.invalid,alternate@example.invalid' })) vi.stubEnv(name, value);
   smtp.send.mockReset().mockResolvedValue(undefined);
   vi.useFakeTimers({ toFake: ['Date'] });
   vi.setSystemTime(new Date('2026-11-10T18:00:00Z'));

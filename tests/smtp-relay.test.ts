@@ -76,6 +76,23 @@ async function withRelay(advertiseTls: boolean, run: (commands: string[], messag
 }
 
 describe('real SMTP protocol against a local relay fixture', () => {
+  it('sends one message with both To recipients, CC, and PDF plus Excel attachments', async () => {
+    await withRelay(false, async (commands, messages) => {
+      const result = await sendEmail({ to: ['one@example.invalid', 'two@example.invalid'], cc: ['copy@example.invalid', 'ONE@example.invalid'],
+        subject: 'Shared report', text: 'Synthetic report.', messageId: '<shared-report@example.invalid>', attachments: [
+          { filename: 'report.pdf', content: Buffer.from('%PDF-fixture'), contentType: 'application/pdf' },
+          { filename: 'report.xlsx', content: Buffer.from('xlsx-fixture'), contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' },
+        ] });
+      expect(commands.filter((line) => line.startsWith('RCPT TO:'))).toEqual(['RCPT TO:<one@example.invalid>', 'RCPT TO:<two@example.invalid>', 'RCPT TO:<copy@example.invalid>']);
+      expect(commands.filter((line) => line === 'DATA')).toHaveLength(1);
+      expect(messages).toHaveLength(1);
+      expect(messages[0]).toMatch(/To: one@example.invalid, two@example.invalid/);
+      expect(messages[0]).toMatch(/Cc: copy@example.invalid/);
+      expect(messages[0]).toContain('filename=report.pdf');
+      expect(messages[0]).toContain('filename=report.xlsx');
+      expect(result).toEqual({ accepted: ['one@example.invalid', 'two@example.invalid', 'copy@example.invalid'], rejected: [] });
+    });
+  });
   it('verifies without STARTTLS, AUTH or a message even when those extensions are advertised', async () => {
     await withRelay(true, async (commands, messages) => {
       await verifySmtp();

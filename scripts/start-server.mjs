@@ -2,7 +2,6 @@ import { readFile } from 'node:fs/promises';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { basePath } from '../lib/app-path.js';
-import { reportEmailsEnabled } from '../lib/smtp-config.js';
 
 // Runs for npm start AND for NSSM's direct Node entry point. Loads the private
 // environment and validates storage, the catalogue and authentication first.
@@ -33,7 +32,8 @@ try {
   }
   launch([fileURLToPath(new URL('../node_modules/next/dist/bin/next', import.meta.url)),
     'start', '--hostname', '127.0.0.1', '--port', String(port)], 'Reporting server');
-  if (reportEmailsEnabled()) launch(['scripts/email-worker.mjs'], 'Email worker');
+  // Keep the worker available for the saved on/off toggle; it sends nothing while disabled.
+  launch(['scripts/email-worker.mjs'], 'Email worker');
   process.on('SIGINT', () => stop(0, 'SIGINT'));
   process.on('SIGTERM', () => stop(0));
 } catch (error) {

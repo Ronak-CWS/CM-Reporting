@@ -1,80 +1,97 @@
 // @vitest-environment jsdom
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import ReportEmailActions from '../app/components/ReportEmailActions';
 
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.unstubAllEnvs(); });
 
-describe('report test email controls', () => {
-  it('shows recipients before sending, uses the selected report and base path, and displays relay acceptance', async () => {
+function setup({ enabled = false, fail = false, partial = false } = {}) {
+  let automatic = { enabled, to: ['automatic@example.invalid'], cc: [], formats: ['pdf'] };
+  const fetch = vi.fn(async (input: string, options?: RequestInit) => {
+    const body = JSON.parse(String(options?.body || '{}'));
+    if (options?.method === 'PATCH') {
+      automatic = { enabled: body.enabled, to: body.to === undefined ? automatic.to : body.to.split(','), cc: body.cc ? body.cc.split(',') : [], formats: body.formats || automatic.formats };
+      return Response.json({ automatic });
+    }
+    if (options?.method === 'POST') return fail
+      ? Response.json({ error: 'Enter valid email addresses.' }, { status: 400 })
+      : Response.json({ accepted: partial ? [] : [body.to || 'office@example.invalid'], failed: partial ? [{ recipient: 'office@example.invalid', code: 'ETIMEDOUT' }] : [] });
+    return Response.json({ recipients: ['office@example.invalid'], cc: [], senders: ['test-sender@example.invalid', 'alternate@example.invalid'],
+      day: new URL(input, 'https://cm.test').searchParams.get('day') || '2026-11-10', today: '2026-11-10', reportCount: 3, photoCount: 3, sendAt: '17:00', automatic });
+  });
+  vi.stubGlobal('fetch', fetch);
+  render(<ReportEmailActions />);
+  return { fetch, user: userEvent.setup() };
+}
+
+describe('manual and automatic report email controls', () => {
+  it('uses the selected date for previews and sends both files with edited To and CC in one request', async () => {
     vi.stubEnv('NEXT_PUBLIC_BASE_PATH', '/cm-reporting');
-    vi.stubGlobal('fetch', vi.fn(async (_input, options) => options?.method === 'POST'
-      ? Response.json({ accepted: ['office@example.invalid'], failed: [] })
-      : Response.json({ recipients: ['office@example.invalid'], senders: ['test-sender@example.invalid', 'alternate@example.invalid'], day: '2026-11-10', reportCount: 1, photoCount: 2, sendAt: '17:00', automaticEnabled: false })));
-    render(<ReportEmailActions />);
-    expect(await screen.findByText('office@example.invalid')).toBeTruthy();
-    expect(screen.getByText('Automatic emails off')).toBeTruthy();
-    expect(screen.getByText(/Schedule:/)).toHaveProperty('textContent', expect.stringContaining('17:00 Edmonton time'));
-    expect(screen.getByRole('link', { name: "Preview today's PDF" }).getAttribute('href')).toBe('/cm-reporting/api/email/blocked-calls/report');
-    expect(screen.getByRole('link', { name: "Preview today's Excel" }).getAttribute('href')).toBe('/cm-reporting/api/email/blocked-calls/report?format=xlsx');
-    expect(fetch).toHaveBeenCalledTimes(1);
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Send test email' }));
-    expect(fetch).toHaveBeenLastCalledWith('/cm-reporting/api/email/blocked-calls', { method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'test-sender@example.invalid' }) });
+    const { fetch, user } = setup();
+    const date = await screen.findByLabelText('Report date');
+    fireEvent.change(date, { target: { value: '2026-11-09' } });
+    await waitFor(() => expect(screen.getByRole('link', { name: 'Preview PDF' }).getAttribute('href')).toBe('/cm-reporting/api/email/blocked-calls/report?day=2026-11-09&format=pdf'));
+    expect(screen.getByRole('link', { name: 'Preview Excel' }).getAttribute('href')).toBe('/cm-reporting/api/email/blocked-calls/report?day=2026-11-09&format=xlsx');
+    await user.type(screen.getByLabelText('To'), 'one@example.invalid,two@example.invalid');
+    await user.type(screen.getByLabelText('CC (optional)'), 'copy@example.invalid');
+    await user.selectOptions(screen.getByLabelText('From'), 'alternate@example.invalid');
+    await user.click(within(screen.getByRole('group', { name: 'Manual attachments' })).getByLabelText('Excel'));
+    await user.click(screen.getByRole('button', { name: 'Send email manually' }));
+    expect(fetch).toHaveBeenLastCalledWith('/cm-reporting/api/email/blocked-calls', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'alternate@example.invalid', day: '2026-11-09', formats: ['pdf', 'xlsx'], cc: 'copy@example.invalid', to: 'one@example.invalid,two@example.invalid' }) });
     expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('relay accepted'));
-    expect(screen.getByRole('button', { name: 'Test completed' })).toHaveProperty('disabled', true);
-    await userEvent.setup().selectOptions(screen.getByLabelText('Test sender'), 'alternate@example.invalid');
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Send test email' }));
-    expect(fetch).toHaveBeenLastCalledWith('/cm-reporting/api/email/blocked-calls', { method: 'POST',
-      headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ from: 'alternate@example.invalid' }) });
+    expect(screen.getByRole('switch')).toHaveProperty('ariaChecked', 'false');
+    expect(screen.getByRole('button', { name: 'Email submitted' })).toHaveProperty('disabled', true);
   });
 
-  it('sends edited recipients and restores the environment fallback when cleared', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (_input, options) => options?.method === 'POST'
-      ? Response.json({ accepted: [JSON.parse(options.body).to || 'office@example.invalid'], failed: [] })
-      : Response.json({ recipients: ['office@example.invalid'], senders: ['test-sender@example.invalid'], day: '2026-11-10', reportCount: 318, photoCount: 318, sendAt: '17:00', automaticEnabled: false })));
-    const user = userEvent.setup();
-    render(<ReportEmailActions />);
-    const to = await screen.findByLabelText(/Send to/);
-    expect(to).toHaveProperty('value', '');
-    expect(to.getAttribute('placeholder')).toBe('office@example.invalid');
-    await user.type(to, 'edited@example.invalid');
-    await user.click(screen.getByRole('button', { name: 'Send test email' }));
-    expect(fetch).toHaveBeenLastCalledWith('/api/email/blocked-calls', expect.objectContaining({
-      body: JSON.stringify({ from: 'test-sender@example.invalid', to: 'edited@example.invalid' }),
-    }));
-    expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('edited@example.invalid'));
-    await user.clear(to);
-    expect(screen.queryByRole('status')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Send test email' }));
-    expect(fetch).toHaveBeenLastCalledWith('/api/email/blocked-calls', expect.objectContaining({
-      body: JSON.stringify({ from: 'test-sender@example.invalid' }),
-    }));
-    expect(await screen.findByRole('status')).toHaveProperty('textContent', expect.stringContaining('office@example.invalid'));
+  it('uses environment To when blank and requires at least one attachment and a date', async () => {
+    const { fetch, user } = setup();
+    const date = await screen.findByLabelText('Report date');
+    expect(screen.getByLabelText('To').getAttribute('placeholder')).toBe('office@example.invalid');
+    const pdf = within(screen.getByRole('group', { name: 'Manual attachments' })).getByLabelText('PDF');
+    await user.click(pdf);
+    expect(screen.getByRole('button', { name: 'Send email manually' })).toHaveProperty('disabled', true);
+    await user.click(pdf);
+    fireEvent.change(date, { target: { value: '' } });
+    expect(screen.getByRole('button', { name: 'Send email manually' })).toHaveProperty('disabled', true);
+    fireEvent.change(date, { target: { value: '2026-11-10' } });
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Send email manually' })).toHaveProperty('disabled', false));
+    await user.click(screen.getByRole('button', { name: 'Send email manually' }));
+    expect(JSON.parse(String(fetch.mock.calls.at(-1)?.[1]?.body))).toEqual({ from: 'test-sender@example.invalid', day: '2026-11-10', formats: ['pdf'], cc: '' });
   });
 
-  it('keeps the edited recipient available to correct after a server validation error', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (_input, options) => options?.method === 'POST'
-      ? Response.json({ error: 'Enter valid email addresses separated by commas or semicolons.' }, { status: 400 })
-      : Response.json({ recipients: ['office@example.invalid'], senders: ['test-sender@example.invalid'], day: '2026-11-10', reportCount: 1, photoCount: 2, sendAt: '17:00', automaticEnabled: false })));
-    const user = userEvent.setup();
-    render(<ReportEmailActions />);
-    const to = await screen.findByLabelText(/Send to/);
-    await user.type(to, 'incorrect');
-    await user.click(screen.getByRole('button', { name: 'Send test email' }));
+  it('saves automatic CC and formats without sending email or changing the manual date', async () => {
+    const { fetch, user } = setup();
+    await screen.findByLabelText('Report date');
+    await user.type(screen.getByLabelText('Automatic CC (optional)'), 'copy@example.invalid');
+    await user.click(within(screen.getByRole('group', { name: 'Automatic attachments' })).getByLabelText('Excel'));
+    await user.click(screen.getByRole('button', { name: 'Save automatic settings' }));
+    expect(JSON.parse(String(fetch.mock.calls.at(-1)?.[1]?.body))).toEqual({ enabled: false, to: 'automatic@example.invalid', cc: 'copy@example.invalid', formats: ['pdf', 'xlsx'] });
+    await user.click(screen.getByRole('switch', { name: 'Automatic daily email' }));
+    await waitFor(() => expect(screen.getByRole('switch').getAttribute('aria-checked')).toBe('true'));
+    expect(screen.getByLabelText('Report date')).toHaveProperty('value', '2026-11-10');
+    expect(fetch.mock.calls.some(([, options]) => options?.method === 'POST')).toBe(false);
+    expect(screen.getByText(/Every day at 17:00 Edmonton/)).toBeTruthy();
+    await user.clear(screen.getByLabelText('Automatic To'));
+    await user.type(screen.getByLabelText('Automatic To'), 'unfinished');
+    await user.click(screen.getByRole('switch'));
+    expect(JSON.parse(String(fetch.mock.calls.at(-1)?.[1]?.body))).toEqual({ enabled: false });
+  });
+
+  it('retains edits when the server rejects recipients', async () => {
+    const { user } = setup({ fail: true });
+    await user.type(await screen.findByLabelText('To'), 'invalid');
+    await user.click(screen.getByRole('button', { name: 'Send email manually' }));
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('valid email addresses'));
-    expect(to).toHaveProperty('value', 'incorrect');
-    expect(screen.getByRole('button', { name: 'Send test email' })).toHaveProperty('disabled', false);
+    expect(screen.getByLabelText('To')).toHaveProperty('value', 'invalid');
+    expect(screen.getByRole('button', { name: 'Send email manually' })).toHaveProperty('disabled', false);
   });
 
-  it('shows failed recipients and never claims inbox delivery', async () => {
-    vi.stubGlobal('fetch', vi.fn(async (_input, options) => options?.method === 'POST'
-      ? Response.json({ accepted: [], failed: [{ recipient: 'office@example.invalid', code: 'ETIMEDOUT' }] })
-      : Response.json({ recipients: ['office@example.invalid'], senders: ['test-sender@example.invalid', 'alternate@example.invalid'], day: '2026-11-10', reportCount: 1, photoCount: 2, sendAt: '17:00', automaticEnabled: true })));
-    render(<ReportEmailActions />);
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Send test email' })).toHaveProperty('disabled', false));
-    await userEvent.setup().click(screen.getByRole('button', { name: 'Send test email' }));
+  it('reports delivery failures without claiming inbox delivery', async () => {
+    const { user } = setup({ partial: true });
+    await screen.findByLabelText('Report date');
+    await user.click(screen.getByRole('button', { name: 'Send email manually' }));
     expect(await screen.findByRole('alert')).toHaveProperty('textContent', expect.stringContaining('ETIMEDOUT'));
     expect(screen.queryByRole('status')).toBeNull();
   });

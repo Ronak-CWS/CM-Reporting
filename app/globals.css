@@ -1731,6 +1731,22 @@ h2 {
 .report-email-actions__badge { display: inline-flex; align-items: center; gap: 7px; padding: 8px 11px; border-radius: 999px; background: var(--orange-100); color: #a95120; font-size: .71rem; font-weight: 700; white-space: nowrap; }
 .report-email-actions__badge > span { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .report-email-actions__badge--on { background: var(--green-100); color: var(--green-700); }
+.report-email-actions h3 { margin: 0; color: var(--navy-900); font-size: .95rem; }
+.report-email-actions h3.report-email-actions__manual-title { margin: 24px 0 16px; }
+.report-email-actions__formats { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; border: 0; padding: 0; margin: 20px 0 0; min-width: 0; }
+.report-email-actions__formats legend { margin-bottom: 10px; color: var(--navy-700); font-size: .72rem; font-weight: 700; }
+.report-email-actions__formats label { display: inline-flex; gap: 9px; align-items: center; padding: 10px 15px; border: 1px solid var(--slate-200); border-radius: 10px; font-size: .8rem; cursor: pointer; background: white; }
+.report-email-actions__formats label:has(input:checked) { border-color: var(--teal-600); background: #e9f6f7; }
+.report-email-actions__formats input { width: 17px; height: 17px; margin: 0; accent-color: var(--teal-600); }
+.report-email-actions__formats small { color: var(--slate-500); font-size: .72rem; }
+.report-email-actions__automatic { margin-top: 26px; padding-top: 24px; border-top: 1px solid var(--slate-200); }
+.report-email-actions__automatic .report-email-actions__fields { margin-top: 20px; }
+.report-email-actions__automatic-footer { display: flex; justify-content: space-between; gap: 16px; align-items: flex-end; flex-wrap: wrap; }
+.report-email-actions__switch { display: inline-flex; align-items: center; gap: 9px; min-width: 82px; min-height: 40px; padding: 9px 15px; border: 1px solid #d1dade; border-radius: 999px; background: var(--slate-100); color: var(--slate-500); font-size: .8rem; font-weight: 700; cursor: pointer; }
+.report-email-actions__switch > span { width: 16px; height: 16px; border-radius: 50%; background: currentColor; }
+.report-email-actions__switch--on { color: var(--green-700); background: var(--green-100); border-color: #9dcdb6; }
+.report-email-actions__switch:focus-visible { outline: 3px solid var(--teal-600); outline-offset: 3px; }
+.report-email-actions__switch:disabled { opacity: .6; cursor: wait; }
 .report-email-actions__summary { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; margin: 22px 0; padding: 17px 20px; border: 1px solid var(--slate-200); border-radius: 13px; background: #f6fafb; }
 .report-email-actions__summary > div + div { padding-left: 20px; border-left: 1px solid var(--slate-200); }
 .report-email-actions__summary dt { color: var(--slate-500); font-size: .68rem; font-weight: 650; letter-spacing: .035em; text-transform: uppercase; }

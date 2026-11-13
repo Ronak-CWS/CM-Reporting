@@ -8,12 +8,14 @@ import { dailyBlockedCalls, dailyEmailTime, queueDailyBlockedCalls } from '../li
 import { dailyBlockedCallAttachments } from '../lib/report-attachment.js';
 import { deliverQueuedEmails, openEmailOutbox } from '../lib/email-outbox.js';
 import { PDFDocument } from 'pdf-lib';
+import { automaticEmailSettings, automaticEmailsEnabled, saveAutomaticEmailSettings } from '../lib/report-email-settings.js';
 
 let fixture: Awaited<ReturnType<typeof createEmailFixture>>;
 beforeEach(async () => {
   fixture = await createEmailFixture(await mkdtemp(path.join(tmpdir(), 'cm-daily-email-')));
   vi.stubEnv('REPORT_EMAIL_TO', 'office@example.invalid');
   vi.stubEnv('REPORT_EMAIL_ENABLED', 'true');
+  vi.stubEnv('REPORT_EMAIL_CC', '');
   vi.stubEnv('BLOCKED_CALL_EMAIL_TIME', '17:00');
 });
 afterEach(async () => { fixture.database.close(); await rm(fixture.directory, { recursive: true, force: true }); vi.unstubAllEnvs(); });
@@ -30,6 +32,33 @@ function anotherReport(occurredAt: string, complaint = false) {
 }
 
 describe('daily blocked-call schedule', () => {
+  it('persists the off switch across processes and does not require valid SMTP to turn off', async () => {
+    saveAutomaticEmailSettings(fixture.database, { enabled: false, cc: 'copy@example.invalid', formats: ['xlsx'] });
+    const other = openEmailOutbox(fixture.directory);
+    try {
+      expect(automaticEmailSettings(other)).toEqual({ enabled: false, to: ['office@example.invalid'], cc: ['copy@example.invalid'], formats: ['xlsx'] });
+      expect(queueDailyBlockedCalls(other, new Date('2026-11-11T00:00:00Z'))).toBe(false);
+    } finally { other.close(); }
+  });
+
+  it('queues one email with both To recipients and CC, retaining selected formats for a retry', async () => {
+    vi.stubEnv('REPORT_EMAIL_TO', 'one@example.invalid,two@example.invalid');
+    vi.stubEnv('REPORT_EMAIL_CC', 'copy@example.invalid');
+    saveAutomaticEmailSettings(fixture.database, { enabled: false, formats: ['pdf', 'xlsx'] });
+    // Enable the durable flag directly to isolate the scheduler from SMTP configuration validation.
+    fixture.database.prepare('UPDATE blocked_call_email_settings SET enabled = 1').run();
+    const due = new Date('2026-11-11T00:00:00Z');
+    expect(queueDailyBlockedCalls(fixture.database, due)).toBe(true);
+    expect(fixture.database.prepare('SELECT count(*) AS n FROM report_email_outbox').get()?.n).toBe(1);
+    saveAutomaticEmailSettings(fixture.database, { enabled: false, cc: 'later@example.invalid', formats: ['pdf'] });
+    const send = vi.fn().mockResolvedValue(undefined);
+    expect(await deliverQueuedEmails(fixture.database, { send, now: () => due.getTime(), dailyEnabled: () => automaticEmailsEnabled(fixture.database) })).toEqual({ sent: 0, deferred: 0 });
+    fixture.database.prepare('UPDATE blocked_call_email_settings SET enabled = 1').run();
+    expect(await deliverQueuedEmails(fixture.database, { send, now: () => due.getTime(), dailyEnabled: () => automaticEmailsEnabled(fixture.database) })).toEqual({ sent: 1, deferred: 0 });
+    expect(send).toHaveBeenCalledOnce();
+    expect(send.mock.calls[0][0]).toMatchObject({ to: ['one@example.invalid', 'two@example.invalid'], cc: ['copy@example.invalid'] });
+    expect(send.mock.calls[0][0].attachments.map((item: { filename: string }) => item.filename)).toEqual(['blocked-calls-2026-11-10.pdf', 'blocked-calls-2026-11-10.xlsx']);
+  });
   it('does not queue or send when automatic delivery is off, even after the scheduled time', () => {
     vi.stubEnv('REPORT_EMAIL_ENABLED', 'false');
     expect(queueDailyBlockedCalls(fixture.database, new Date('2026-11-11T01:00:00Z'))).toBe(false);

@@ -18,6 +18,16 @@ afterEach(() => { vi.unstubAllEnvs(); });
 const message = { to: 'office@example.invalid', subject: 'New report', text: 'A report was saved.', messageId: '<test-report@example.invalid>' };
 
 describe('SMTP notifications', () => {
+  it('returns partial acceptance and keeps shared headers when retrying only a rejected recipient', async () => {
+    smtp.sendMail.mockResolvedValueOnce({ accepted: ['office@example.invalid'], rejected: ['copy@example.invalid'] });
+    const grouped = { ...message, cc: ['copy@example.invalid'] };
+    expect(await sendEmail(grouped)).toEqual({ accepted: ['office@example.invalid'], rejected: ['copy@example.invalid'] });
+    smtp.sendMail.mockResolvedValueOnce({ accepted: ['copy@example.invalid'], rejected: [] });
+    await sendEmail({ ...grouped, envelopeTo: ['copy@example.invalid'] });
+    expect(smtp.sendMail).toHaveBeenLastCalledWith({ ...grouped, from: 'sender@example.invalid', envelope: { from: 'sender@example.invalid', to: ['copy@example.invalid'] } });
+    await expect(sendEmail({ ...grouped, envelopeTo: ['outsider@example.invalid'] })).rejects.toMatchObject({ code: 'EMESSAGE' });
+    expect(smtp.sendMail).toHaveBeenCalledTimes(2);
+  });
   it('uses separate configured test recipients and sender without changing automatic emails', async () => {
     vi.stubEnv('REPORT_EMAIL_TEST_TO', 'test-only@example.invalid');
     vi.stubEnv('EMAIL_TEST_FROM_OPTIONS', 'test-sender@example.invalid,alternate@example.invalid');

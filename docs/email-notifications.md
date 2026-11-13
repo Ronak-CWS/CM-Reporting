@@ -10,7 +10,9 @@ Install these settings in the private `.env.production.local` on **CWS WEB01**. 
 REPORT_EMAIL_ENABLED=false
 BLOCKED_CALL_EMAIL_TIME=17:00
 REPORT_EMAIL_TO=rtandon@collectivewaste.ca
+REPORT_EMAIL_CC=
 REPORT_EMAIL_TEST_TO=rtandon@collectivewaste.ca
+REPORT_EMAIL_TEST_CC=
 SMTP_HOST=Smtp1.shivtek.ca
 SMTP_PORT=25
 SMTP_SECURE=false
@@ -31,29 +33,32 @@ The app permits `SMTP_IGNORE_TLS=true` only with `SMTP_SECURE=false`, `SMTP_REQU
 
 Install dependencies with `npm.cmd ci`, build with `npm.cmd run build`, and restart the CM Reporting service after applying code or environment changes. Update NSSM environment values too if it supplies these variables directly. The service entry point remains `scripts/start-server.mjs`.
 
-## Preview and test
+## Preview and send manually
 
 1. Sign in to the office dashboard on CWS WEB01 and open **Exports**.
-2. Under **Today's blocked-call email**, check the date, report/photo counts, and default recipient. Leave **Send to** blank to use `REPORT_EMAIL_TEST_TO` from the server environment (currently `rtandon@collectivewaste.ca`). To test another recipient, enter their email address; separate multiple addresses with commas or semicolons. Entered recipients replace the defaults for that test only. Clearing the field restores the environment default.
-3. Select **Preview today's PDF** or **Preview today's Excel** to inspect the one-day report and all its photos. Preview downloads do not send email.
-4. Select either `notifications@collectivewaste.ca` or `no-reply@collectivewaste.ca` in **Test sender**, then select **Send test email**. The subject starts with `[CM Reporting TEST]`.
-5. Check your inbox and attachment. Choose the other sender to test it as well. Relay acceptance alone does not prove inbox delivery.
+2. Under **Blocked-call emails → Send manually**, choose a **Report date** (today or an earlier date, in Edmonton time). Counts and both previews follow this date.
+3. Leave **To** blank to use `REPORT_EMAIL_TEST_TO` from the environment, or enter replacement recipients separated by commas or semicolons. Enter **CC** as needed; clear CC to send without copies. `REPORT_EMAIL_TEST_CC` optionally supplies initial manual CC, falling back to `REPORT_EMAIL_CC` if unset.
+4. Check **PDF**, **Excel**, or both. Both include the saved photos. **Preview PDF** and **Preview Excel** download the selected date without sending email.
+5. Choose `notifications@collectivewaste.ca` or `no-reply@collectivewaste.ca` in **From**, then select **Send email manually**. One message goes to all To and CC recipients, with both lists visible. Its subject starts with `[CM Reporting]`, without a TEST label.
+6. Check the inboxes and attachments. Relay acceptance alone does not prove inbox delivery.
 
-The test works while automatic sending is off. It does not create records, enable the schedule, or change the environment or automatic recipient list (`REPORT_EMAIL_TO`). Sender options remain allowlisted in server configuration. Signed-in office users can override test recipients; the server validates plain email addresses, removes duplicates, and rejects malformed input before preparing a report or sending. Authentication and same-origin protection apply. Driver-only sessions cannot access these controls. A one-minute database-backed limit applies per date and sender, even when recipients change, so both sender options can be tested immediately without concurrent duplicate sends.
+Manual sending works while automatic delivery is off. Manual dates, recipients and attachment choices do not change automatic delivery. Sender options remain allowlisted in `EMAIL_TEST_FROM_OPTIONS`. The server validates addresses, removes duplicates across To and CC, limits the combined list to 100 recipients, and rejects invalid dates or empty format choices before sending. Office authentication and same-origin protection apply to sends and saved automatic settings; driver-only sessions cannot access either. A one-minute database-backed limit applies per date and sender. If some recipients are rejected, the manual result identifies them; retry only those addresses to avoid sending accepted recipients another copy.
 
-The test and preview select today's records at request time. The automatic report selects today's records at the 5:00 PM run. Later submissions are not appended to an already queued report. If the service is down at 5:00 PM, it queues the current day's report when it resumes later that day; it does not create missed reports for previous dates. A day with no blocked calls produces a dated zero-report PDF.
+Manual sends and previews select the chosen day's records at request time. Automatic delivery still selects today's records at the 5:00 PM run. Later submissions are not appended to an already queued report. If the service is down at 5:00 PM, it queues the current day's report when it resumes later that day; it does not create missed reports for previous dates. An empty day produces a dated zero-report file in each selected format.
 
-## Keep automatic delivery off
+## Automatic on/off and recipients
 
-Leave `REPORT_EMAIL_ENABLED=false` as requested. When activation is explicitly desired, set it to `true` and restart the managed service. Blocked calls will then be queued once per day at or after `BLOCKED_CALL_EMAIL_TIME`; complaints will send their existing individual notifications. No user-interface test enables this setting.
+Automatic delivery initially uses `REPORT_EMAIL_ENABLED` (currently false). Use the **Automatic daily email** On/Off pill to save an override. **Automatic To**, **Automatic CC**, and the attachment checkboxes are saved with **Save automatic settings**; enabling the pill also saves the displayed choices. Turning it off always works without saving unfinished recipient edits. Saved preferences live in `reports.sqlite` and survive service restarts. SMTP credentials stay in the environment. Before preferences are saved, automatic To/CC use `REPORT_EMAIL_TO` / optional `REPORT_EMAIL_CC`, and PDF is the default. Clearing automatic To restores its environment default; clearing CC removes copies.
 
-The managed worker checks every 15 seconds. `next start` and `npm.cmd run dev` alone do not launch the worker, but the manual test still works. Daily batches and their recipient lists are stored durably in SQLite. Existing unsent individual blocked-call notifications are marked superseded when the daily worker runs; they are retained for audit and not sent alongside the daily report.
+The pill controls blocked-call daily emails only. It does not change the 17:00 Edmonton schedule, choose a historical automatic date, or enable complaint notifications. Existing complaint notifications still use `REPORT_EMAIL_ENABLED`. The managed worker stays running while daily delivery is off so the pill works without a service restart. Switching off prevents new automatic sends and pauses queued daily emails; it cannot recall a message already handed to SMTP. Enabling after the scheduled time can send today's due report on the next worker tick.
+
+The managed worker checks every 15 seconds. `next start` and `npm.cmd run dev` alone do not launch it, but manual sending still works. New daily batches save one message, its To/CC lists and attachment formats in SQLite. Retries retain the queued date, recipients and formats. Existing unsent individual blocked-call notifications are marked superseded when the daily worker runs; they are retained for audit and not sent alongside the daily report. Historical outbox entries created before grouped delivery retain their original recipient structure.
 
 ## PDF, Excel and photos
 
 The attached PDF uses a compact dated header, with each call's details on the left and photographs on the right. Short calls with one photo generally fit four per US Letter page; longer details and additional photos use more space. Each complete record is measured before placement and moves to the next page as one block if needed. Exceptionally long records use one taller page at the same readable text size, so no record, photo, caption or note is split or dropped. Report details use saved data at preparation time; the automatic batch fixes its record IDs and recipients when queued. A retry keeps the original batch date, so different dates are never mixed.
 
-The Excel download contains a filterable **Summary** and **Details and photos** with embedded images. Click a reference in Summary to jump to that call's photos. Print areas, repeating headings and page breaks keep the printout compact. The PDF and Excel previews use the same daily selection and saved fields. Test and automatic emails currently attach the PDF; downloading Excel does not change the email format.
+The Excel download contains a filterable **Summary** and **Details and photos** with embedded images. Click a reference in Summary to jump to that call's photos. Print areas, repeating headings and page breaks keep the printout compact. PDF and Excel use the same daily selection and saved fields. Manual and automatic emails can each attach PDF, Excel, or both. When both are selected they share the total attachment allowance, so photo copies may be smaller than in a single-format preview. Originals are unchanged.
 
 JPEG, PNG, WebP, GIF, and HEIC/HEIF uploads are converted to JPEG copies. Animated/multi-image files use their first image. Photos retain their aspect ratio and orientation. Copies use up to 1,600 pixels on the longest side; busy days start at an appropriate smaller size and can reduce as far as 384 pixels to fit the budget. Original evidence files are unchanged.
 

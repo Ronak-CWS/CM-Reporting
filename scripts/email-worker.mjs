@@ -1,6 +1,7 @@
 import nextEnv from '@next/env';
 import { dataDirectory } from '../lib/storage-config.ts';
-import { reportEmailsEnabled, validateReportEmailConfig } from '../lib/smtp-config.js';
+import { reportEmailsEnabled } from '../lib/smtp-config.js';
+import { automaticEmailsEnabled } from '../lib/report-email-settings.js';
 import { deliverQueuedEmails, openEmailOutbox } from '../lib/email-outbox.js';
 import { safeEmailErrorCode } from '../lib/smtp.js';
 import { queueDailyBlockedCalls } from '../lib/daily-blocked-call-email.js';
@@ -12,13 +13,12 @@ let wake;
 for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => { stopping = true; wake?.(); });
 
 try {
-  validateReportEmailConfig();
-  if (!reportEmailsEnabled()) throw new Error('Set REPORT_EMAIL_ENABLED=true after configuring SMTP and the approved recipient list.');
   const database = openEmailOutbox(dataDirectory());
   try {
     do {
       queueDailyBlockedCalls(database);
-      const result = await deliverQueuedEmails(database, { limit: 20 });
+      const result = await deliverQueuedEmails(database, { limit: 20,
+        dailyEnabled: () => automaticEmailsEnabled(database), otherEnabled: reportEmailsEnabled });
       if (result.sent || result.deferred) console.log(`Report emails: ${result.sent} accepted by SMTP; ${result.deferred} scheduled for retry.`);
       if (process.argv.includes('--once') || stopping) break;
       await new Promise((resolve) => {

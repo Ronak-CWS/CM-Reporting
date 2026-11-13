@@ -26,9 +26,8 @@ function wrap(value: string, width: number) {
 }
 
 /** Photo-inclusive daily workbook; existing register exports remain available. */
-export async function dailyBlockedCallWorkbook(database: DatabaseSync, directory: string, ids: string[], day: string) {
+export async function dailyBlockedCallWorkbook(database: DatabaseSync, directory: string, ids: string[], day: string, maxReportBytes = reportAttachmentLimitBytes()) {
   try {
-    const maxReportBytes = reportAttachmentLimitBytes();
     const entries = dailyBlockedCallReports(database, ids, day);
     const photoCount = entries.reduce((total, entry) => total + entry.photos.length, 0);
     const workbook = new ExcelJS.Workbook();
@@ -68,7 +67,7 @@ export async function dailyBlockedCallWorkbook(database: DatabaseSync, directory
     let detailRow = 4;
     let pageHeight = 0;
     const usableHeight = 660;
-    const imageBudget = reportImageBudget(entries);
+    const imageBudget = reportImageBudget(entries, maxReportBytes);
     function band(reference: string, continued = false) {
       const row = details.getRow(detailRow);
       details.mergeCells(detailRow, 1, detailRow, 12);

@@ -23,6 +23,30 @@ function queue(id = 'report-one') {
 }
 
 describe('durable report email delivery', () => {
+  it('retries only rejected members of a shared email while retaining its To and CC headers', async () => {
+    queue('group');
+    database.prepare("UPDATE report_email_outbox SET report_id = 'blocked-day:2026-11-10', recipient = 'one@example.invalid,two@example.invalid'").run();
+    database.prepare('INSERT INTO report_email_groups (outbox_id, cc) VALUES (?, ?)').run('group', JSON.stringify(['copy@example.invalid']));
+    const send = vi.fn().mockResolvedValueOnce({ accepted: ['one@example.invalid', 'copy@example.invalid'], rejected: ['two@example.invalid'] });
+    expect(await deliverQueuedEmails(database, { send, now: () => 1000 })).toEqual({ sent: 0, deferred: 1 });
+    database.close(); database = openEmailOutbox(directory);
+    send.mockResolvedValueOnce({ accepted: ['two@example.invalid'], rejected: [] });
+    expect(await deliverQueuedEmails(database, { send, now: () => 31000 })).toEqual({ sent: 1, deferred: 0 });
+    expect(send.mock.calls[1][0]).toMatchObject({ to: ['one@example.invalid', 'two@example.invalid'], cc: ['copy@example.invalid'], envelopeTo: ['two@example.invalid'] });
+    expect(send.mock.calls[1][0].messageId).toBe(send.mock.calls[0][0].messageId);
+    expect(await deliverQueuedEmails(database, { send, now: () => 90000 })).toEqual({ sent: 0, deferred: 0 });
+  });
+
+  it('stops before SMTP when automatic delivery is disabled during attachment preparation', async () => {
+    queue();
+    database.prepare("UPDATE report_email_outbox SET report_id = 'blocked-day:2026-11-10'").run();
+    let enabled = true;
+    const send = vi.fn();
+    const buildAttachments = vi.fn(async () => { enabled = false; return []; });
+    expect(await deliverQueuedEmails(database, { send, buildAttachments, now: () => 1000, dailyEnabled: () => enabled })).toEqual({ sent: 0, deferred: 0 });
+    expect(send).not.toHaveBeenCalled();
+    expect(database.prepare('SELECT sent_at, locked_until FROM report_email_outbox').get()).toEqual({ sent_at: null, locked_until: 0 });
+  });
   it('keeps a report pending when its photo attachment cannot be prepared', async () => {
     queue();
     const send = vi.fn();
@@ -53,7 +77,7 @@ describe('durable report email delivery', () => {
     queue();
     const second = openEmailOutbox(directory);
     let complete!: () => void;
-    const send = vi.fn(() => new Promise<void>((resolve) => { complete = resolve; }));
+    const send = vi.fn(() => new Promise<{ accepted: string[]; rejected: string[] }>((resolve) => { complete = () => resolve({ accepted: ['office@example.invalid'], rejected: [] }); }));
     const first = deliverQueuedEmails(database, { send, now: () => 1000 });
     try {
       expect(await deliverQueuedEmails(second, { send, now: () => 1000 })).toEqual({ sent: 0, deferred: 0 });
@@ -67,11 +91,12 @@ describe('durable report email delivery', () => {
     queue('first-recipient');
     queue('second-recipient');
     database.prepare("UPDATE report_email_outbox SET report_id = 'first-recipient', recipient = 'manager@example.invalid' WHERE id = 'second-recipient'").run();
-    const send = vi.fn(async ({ to }: { to: string }) => {
+    const send = vi.fn(async ({ to }: { to: string | string[] }) => {
       if (to === 'manager@example.invalid') throw Object.assign(new Error('Recipient refused'), { code: 'EENVELOPE' });
+      return { accepted: Array.isArray(to) ? to : [to], rejected: [] };
     });
     expect(await deliverQueuedEmails(database, { send, now: () => 1000 })).toEqual({ sent: 1, deferred: 1 });
-    send.mockReset().mockResolvedValue(undefined);
+    send.mockReset().mockResolvedValue({ accepted: ['manager@example.invalid'], rejected: [] });
     expect(await deliverQueuedEmails(database, { send, now: () => 31000 })).toEqual({ sent: 1, deferred: 0 });
     expect(send).toHaveBeenCalledOnce();
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ to: 'manager@example.invalid' }));

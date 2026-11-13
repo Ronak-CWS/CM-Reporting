@@ -32,7 +32,7 @@ Complaint customer names and contact information are optional; customer addresse
 
 ## Email notifications
 
-Blocked calls can be emailed as a compact daily PDF with photos at 5:00 PM Edmonton time through `Smtp1.shivtek.ca:25` from `notifications@collectivewaste.ca`. Automatic delivery remains off. Under **Exports**, download today's PDF or Excel with embedded photos, and send a PDF test only to `rtandon@collectivewaste.ca`, choosing either approved sender in the dropdown. The photo-inclusive Excel has a filterable summary and a separate details/photo sheet. [Email setup](docs/email-notifications.md) covers CWS WEB01, relay permissions, configuration and retries. Complaint notifications retain their existing submission behavior when delivery is enabled.
+Under **Exports → Blocked-call emails**, choose a report date, PDF and/or Excel attachments with photos, a sender, and To/CC recipients, then **Send email manually**. All recipients share one message. Blank manual To uses the configured environment default. Automatic delivery initially remains off; its On/Off pill and separate To/CC/format settings persist in SQLite. The automatic schedule stays at 5:00 PM Edmonton time using that day's records, through `Smtp1.shivtek.ca:25` from `notifications@collectivewaste.ca`. [Email setup](docs/email-notifications.md) covers CWS WEB01, settings and retries. Complaint notifications retain their existing submission behavior.
 
 Notifications are committed with each report in a durable SQLite outbox, so SMTP outages do not lose submissions. The managed production start script runs the delivery worker and retries failures. Status edits do not send another submission email. Daily scheduled CSV delivery remains separate and is not enabled.
 

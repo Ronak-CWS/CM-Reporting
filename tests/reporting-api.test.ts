@@ -132,7 +132,7 @@ describe('durable blocked call reports', () => {
     expect((await POST(submission(id, {}, false))).status).toBe(400);
     const pickupWithoutPhoto = await POST(submission(id, { scope: 'pickup', siteAddress: '123 Test Street', reasonCode: 'obstruction' }, false));
     expect(pickupWithoutPhoto.status).toBe(400);
-    expect((await pickupWithoutPhoto.json()).error).toMatch(/photo/i);
+    expect(await pickupWithoutPhoto.json()).toMatchObject({ error: expect.stringMatching(/photo/i) });
     expect((await POST(submission(id, { category: 'Incident' }))).status).toBe(400);
     expect((await POST(submission(id, { reasonCode: 'blocked_by_car' }))).status).toBe(400);
     expect(await database.prepare('SELECT id FROM report_records WHERE id = ?').bind(id).first()).toBeNull();
